@@ -1,4 +1,4 @@
-FROM alpine:latest
+FROM larjim/kademlialab:latest
 
 # Add the commands needed to put your compiled go binary in the container and
 # run it when the container starts.
@@ -12,3 +12,8 @@ FROM alpine:latest
 #
 # $ docker build . -t kadlab
 
+RUN source ..node_cli.sh
+RUN get hejsan
+
+RUN apt-get update
+RUN apt-get -y install iputils-ping
