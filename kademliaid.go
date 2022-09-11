@@ -1,4 +1,4 @@
-package d7024e
+package main
 
 import (
 	"encoding/hex"
@@ -14,12 +14,11 @@ type KademliaID [IDLength]byte
 // NewKademliaID returns a new instance of a KademliaID based on the string input
 func NewKademliaID(data string) *KademliaID {
 	decoded, _ := hex.DecodeString(data)
-
 	newKademliaID := KademliaID{}
 	for i := 0; i < IDLength; i++ {
 		newKademliaID[i] = decoded[i]
-	}
 
+	}
 	return &newKademliaID
 }
 
@@ -53,7 +52,7 @@ func (kademliaID KademliaID) Equals(otherKademliaID *KademliaID) bool {
 	return true
 }
 
-// CalcDistance returns a new instance of a KademliaID that is built 
+// CalcDistance returns a new instance of a KademliaID that is built
 // through a bitwise XOR operation betweeen kademliaID and target
 func (kademliaID KademliaID) CalcDistance(target *KademliaID) *KademliaID {
 	result := KademliaID{}

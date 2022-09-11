@@ -12,3 +12,5 @@ FROM larjim/kademlialab:latest
 #
 # $ docker build . -t kadlab
 
+RUN apt-get update
+RUN apt-get -y install iputils-ping
