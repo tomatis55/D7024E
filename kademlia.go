@@ -1,9 +1,14 @@
 package d7024e
 
+import (
+	"crypto/sha1"
+	"encoding/base64"
+)
+
 type Kademlia struct {
 	RoutingTable *RoutingTable
-	Data         map[string]byte
 	K            int
+	Data         map[string][]byte
 }
 
 func (kademlia *Kademlia) LookupContact(target *Contact) []Contact {
@@ -11,10 +16,15 @@ func (kademlia *Kademlia) LookupContact(target *Contact) []Contact {
 	return contacts
 }
 
-func (kademlia *Kademlia) LookupData(hash string) {
-	// TODO
+func (kademlia *Kademlia) LookupData(hash string) ([]byte, bool) {
+	data, ok := kademlia.Data[hash]
+	return data, ok
 }
 
-func (kademlia *Kademlia) Store(data []byte) {
-	// TODO
+func (kademlia *Kademlia) Store(data []byte) string {
+	hasher := sha1.New()
+	hasher.Write(data)
+	generatedHash := base64.URLEncoding.EncodeToString(hasher.Sum(nil))
+	kademlia.Data[generatedHash] = data
+	return generatedHash
 }
