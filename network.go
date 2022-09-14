@@ -17,7 +17,13 @@ M1. Network formation. [5p]. Your nodes must be able to form networks as describ
 */
 
 type Network struct {
-	count int
+	kademlia Kademlia
+}
+
+type message struct {
+	RPCtype string
+	sender  Contact
+	message []byte
 }
 
 // will listen for udp-packets on the provided ip and port
@@ -56,18 +62,34 @@ func handlePacket(buf []byte, rlen int) {
 
 }
 
+// sends any message over udp towards a target address
+// TODO!: NOT DONE YET
+// + implement some kind of message struct with senderInfo, message and RPCtype
+func (network *Network) sendMessage(addr string, msg message) {
+	conn, _ := net.Dial("udp", addr)
+	_, err := conn.Write(msg.message)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+// you guessed it, this function will send a ping message to a contact!
 func (network *Network) SendPingMessage(contact *Contact) {
-	// TODO
+	msg := message{message: []byte("PING pong! this is a PING message!"), sender: network.kademlia.routingTable.me, RPCtype: "PING"}
+	go network.sendMessage(contact.Address, msg)
 }
 
 func (network *Network) SendFindContactMessage(contact *Contact) {
-	// TODO
+	// message := []byte("greetings traveler! this is a FIND_CONTACT message!")
+	// go network.sendMessage("FIND_CONTACT", contact.Address, message)
 }
 
 func (network *Network) SendFindDataMessage(hash string) {
-	// TODO
+	// message := []byte("well met friend! this is a FIND_DATA message!")
+	// go network.sendMessage("FIND_DATA", contact.Address, message)
 }
 
 func (network *Network) SendStoreMessage(data []byte) {
-	// TODO
+	// message := []byte("hello! this is a STORE message!")
+	// go network.sendMessage("STORE", contact.Address, message)
 }

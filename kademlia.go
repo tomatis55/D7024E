@@ -2,7 +2,7 @@ package main
 
 type Kademlia struct {
 	routingTable *RoutingTable
-	data         map[string]byte
+	// data         map[string]byte
 }
 
 func (kademlia *Kademlia) LookupContact(target *Contact) {
