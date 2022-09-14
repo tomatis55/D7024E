@@ -1,7 +1,7 @@
 package main
 
 type Kademlia struct {
-	routingTable *RoutingTable
+	RoutingTable *RoutingTable
 	// data         map[string]byte
 }
 
