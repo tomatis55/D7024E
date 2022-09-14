@@ -21,6 +21,13 @@ type Network struct {
 	Kademlia Kademlia
 }
 
+/*
+	PING
+	FIND_CONTACT
+	FIND_DATA
+	STORE
+*/
+
 type Message struct {
 	RPCtype string
 	Sender  Contact
@@ -53,19 +60,19 @@ func Listen(ip string, port int) {
 }
 
 // handles a packet, doing what needs to be done and sending the correct messages depending on the type of message recieved
-/*
-	Ping
-	FindContact
-	FindData
-	Store
-*/
 func handlePacket(msg Message) {
 
 	switch msg.RPCtype {
 	case "PING":
+		fmt.Println("you can ping, you can jive, having the time of your life")
 	case "FIND_CONTACT":
+		fmt.Println("find me, find me, find me a contact after midnight")
 	case "FIND_DATA":
+		fmt.Println("data, data, data, must be funny in the rich mans world")
 	case "STORE":
+		fmt.Println("the winner stores it all, the loser has to fall")
+	default:
+		fmt.Println("oh no something unexpected happened")
 	}
 
 }
