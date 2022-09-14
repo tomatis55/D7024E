@@ -1,12 +1,14 @@
-package main
+package d7024e
 
 type Kademlia struct {
-	routingTable *RoutingTable
-	data         map[string]byte
+	RoutingTable *RoutingTable
+	Data         map[string]byte
+	K            int
 }
 
-func (kademlia *Kademlia) LookupContact(target *Contact) {
-	// TODO
+func (kademlia *Kademlia) LookupContact(target *Contact) []Contact {
+	contacts := kademlia.RoutingTable.FindClosestContacts(target.ID, kademlia.K)
+	return contacts
 }
 
 func (kademlia *Kademlia) LookupData(hash string) {
