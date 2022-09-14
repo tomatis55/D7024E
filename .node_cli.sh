@@ -4,7 +4,7 @@
 # hash of the object, if it could be uploaded successfully.
 function put(){
     echo "test1"
-
+    go run main.go
 }
 
 # Takes a hash as its only argument, and outputs the contents of the object and the
@@ -19,5 +19,4 @@ function exit(){
     echo "test3"
 }
 
-cd docker
 echo "test"
