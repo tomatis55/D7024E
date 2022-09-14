@@ -20,20 +20,21 @@ type Network struct {
 	count int
 }
 
+// will listen for udp-packets on the provided ip and port
+// when a packet is detected start a goRoutine to handle it
 func Listen(ip string, port int) {
-	// will listen for udp-packets on the provided ip and port
-	// when a packet is detected start a goRoutine to handle it
-
+	// set up our connection to listen for udp on the specified address
 	addr := net.UDPAddr{
 		Port: port,
 		IP:   net.ParseIP(ip),
 	}
-	sock, _ := net.ListenUDP("udp", &addr)
-	defer sock.Close()
+	conn, _ := net.ListenUDP("udp", &addr)
+	defer conn.Close()
 
+	// listen to our connection, relaying all recieved packets to a handlePacket() go routine for proper handling
+	buf := make([]byte, 1024)
 	for {
-		buf := make([]byte, 1024)
-		rlen, _, err := sock.ReadFromUDP(buf)
+		rlen, _, err := conn.ReadFromUDP(buf)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -41,17 +42,17 @@ func Listen(ip string, port int) {
 	}
 }
 
+// handles a packet, doing what needs to be done and sending the correct messages depending on the type of message recieved
+/*
+	Ping
+	FindContact
+	FindData
+	Store
+*/
 func handlePacket(buf []byte, rlen int) {
 	// do different stuff depending on message
 	// currently we only print the data in it
 	fmt.Println(string(buf[0:rlen]))
-
-	/*
-		Ping
-		FindContact
-		FindData
-		Store
-	*/
 
 }
 
