@@ -1,16 +1,10 @@
 package d7024e
 
 import (
-	"fmt"
 	"testing"
 )
 
-func TestKademlia(*testing.T) {
-	fmt.Println("Hello")
-	// Output: Hello
-}
-
-func TestLookupContact(t *testing.T) {
+func TestKademlia(t *testing.T) {
 	id := NewKademliaID("0000000000000000000000000000000000000000")
 	me := NewContact(id, "327")
 	//fmt.Println("meContact: ", me.String())
@@ -32,9 +26,29 @@ func TestLookupContact(t *testing.T) {
 	if result[0].String() != c1.String() {
 		t.Error("got ", result[0].String(), "want ", c1.String())
 	}
-	//fmt.Println("Contact searching for: ", c1.String())
-	//fmt.Println(result)
-	//for _, c := range result {
-	//	fmt.Println(c.String())
-	//}
+
+	kademlia.RemoveContact(&c1)
+
+	result = kademlia.LookupContact(&c1)
+
+	if result[0].String() == c1.String() {
+		t.Error("got ", result[0].String(), "want ", c1.String())
+	}
+
+	data1 := []byte{123, 160, 161, 255, 79, 101}
+	data2 := []byte{99, 01}
+
+	hash1 := kademlia.Store(data1)
+	hash2 := kademlia.Store(data2)
+
+	dataResult, _ := kademlia.LookupData(hash1)
+	if string(dataResult) != string(data1) {
+		t.Error("got ", string(dataResult), "want ", string(data1))
+	}
+
+	dataResult, _ = kademlia.LookupData(hash2)
+	if string(dataResult) != string(data2) {
+		t.Error("got ", string(dataResult), "want ", string(data2))
+	}
+
 }
