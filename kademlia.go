@@ -28,3 +28,10 @@ func (kademlia *Kademlia) Store(data []byte) string {
 	kademlia.Data[generatedHash] = data
 	return generatedHash
 }
+
+func (kademlia *Kademlia) RemoveContact(contact *Contact) {
+	bucketIndex := kademlia.RoutingTable.getBucketIndex(contact.ID)
+	bucket := kademlia.RoutingTable.buckets[bucketIndex]
+
+	bucket.Remove(contact)
+}
