@@ -9,25 +9,42 @@ func main() {
 	fmt.Println("Hello world")
 	arg := os.Args
 
-	id := arg[1]
-	ip := arg[2]
+	idSuperNode := "0000000000000000000000000000000000000000"
+	ipSuperNode := "172.20.0.2"
+	ip := arg[1]
 
-	me := NewContact(NewKademliaID(id), ip) // use random id if not first node
-	network := &Network{Kademlia{NewRoutingTable(me), 4, make(map[string][]byte)}}
+	network := &Network{}
+	_ = &Contact{}
 
-	if ip != "172.20.0.2" {
+	// Initialize the super node
+	if ip == ipSuperNode {
+		me := NewContact(NewKademliaID(idSuperNode), ipSuperNode)
+		network = &Network{Kademlia{NewRoutingTable(me), 4, make(map[string][]byte)}}
+
+		// Initialize the node and add the super node as a contact, then send a msg to let other nodes know of its existance
+	} else {
+		me := NewContact(NewRandomKademliaID(), ip)
+		network = &Network{Kademlia{NewRoutingTable(me), 4, make(map[string][]byte)}}
 		// add supernode as contact
-		network.Kademlia.RoutingTable.AddContact(NewContact(NewKademliaID("0000000000000000000000000000000000000000"), "172.20.0.2"))
+		network.Kademlia.RoutingTable.AddContact(NewContact(NewKademliaID(idSuperNode), ipSuperNode))
 		network.SendFindContactMessage(&me)
 	}
 
-	// Listen(ip, 2000)
-	network.SendPingMessage(&me)
+	Listen(ip, 2000) // run on c0/super node and run the code below to test ping in another container
+
+	// contact := NewContact(NewKademliaID(idSuperNode), ipSuperNode)
+
+	// // test function to see if the super node is added as a contact
+	// retContact := network.Kademlia.LookupContact(&contact)
+	// if retContact[0].Address == contact.Address {
+	// 	fmt.Println("Jag existerar!")
+	// } else {
+	// 	fmt.Println(":(((((")
+	// }
+
+	// network.SendPingMessage(&contact)
+	// network.SendPingMessage(&contact)
+	// network.SendPingMessage(&contact)
+	// network.SendPingMessage(&contact)
 
 }
-
-// To join the network, a node u must have a contact to an already participating
-// node w. u inserts w into the appropriate k-bucket. u then performs a node lookup
-// for its own node ID.Finally, u refreshes all k-buckets further away than its closest
-// neighbor.During the refreshes, u both populates its own k-buckets and inserts
-// itself into other nodes’ k-buckets as necessary
