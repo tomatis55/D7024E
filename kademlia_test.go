@@ -13,7 +13,7 @@ func TestKademlia(*testing.T) {
 func TestLookupContact(t *testing.T) {
 	id := NewKademliaID("0000000000000000000000000000000000000000")
 	me := NewContact(id, "327")
-	fmt.Println("meContact: ", me.String())
+	//fmt.Println("meContact: ", me.String())
 	table := NewRoutingTable(me)
 	//kademlia := lib.Kademlia{routingTable: table}
 	kademlia := Kademlia{RoutingTable: table, K: 3, Data: make(map[string][]byte)}
@@ -30,11 +30,11 @@ func TestLookupContact(t *testing.T) {
 	result := kademlia.LookupContact(&c1)
 
 	if result[0].String() != c1.String() {
-		t.Error("got %d, want %d", result[0].String(), c1.String())
+		t.Error("got ", result[0].String(), "want ", c1.String())
 	}
-	fmt.Println("Contact searching for: ", c1.String())
+	//fmt.Println("Contact searching for: ", c1.String())
 	//fmt.Println(result)
-	for _, c := range result {
-		fmt.Println(c.String())
-	}
+	//for _, c := range result {
+	//	fmt.Println(c.String())
+	//}
 }
