@@ -14,9 +14,10 @@ function get(){
     echo $1
 }
 
-# Terminates the node
+# Terminates the node (kill it)
 function exit(){
     echo "test3"
+    
 }
 
 echo "test"
