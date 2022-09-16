@@ -199,6 +199,7 @@ func (network *Network) sendMessage(addr string, msg Message) ([]byte, error) {
 	buff := make([]byte, 1024)
 	len, err := conn.Read(buff)
 	if err == nil {
+		fmt.Println("i heard something...")
 		return buff[:len], nil
 	} else {
 		return nil, err
