@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"time"
 )
 
 /*
@@ -22,9 +23,10 @@ type Network struct {
 }
 
 type Message struct {
-	RPCtype string // PING, FIND_CONTACT, FIND_DATA, STORE
+	RPCtype string // PING, PING_ACK, FIND_CONTACT, FIND_DATA, STORE
 	Sender  Contact
 	Message []byte
+	// more?
 }
 
 /*
@@ -44,7 +46,7 @@ type Message struct {
 
 // will listen for udp-packets on the provided ip and port
 // when a packet is detected start a goRoutine to handle it
-func Listen(ip string, port int) {
+func (network *Network) Listen(ip string, port int) {
 	// set up our connection to listen for udp on the specified address
 	addr := net.UDPAddr{
 		Port: port,
@@ -64,7 +66,7 @@ func Listen(ip string, port int) {
 		var msg Message
 		json.Unmarshal(buf[:rlen], &msg)
 
-		handlePacket(msg)
+		network.handlePacket(msg)
 	}
 }
 
@@ -83,20 +85,81 @@ func Listen(ip string, port int) {
 
  */
 
-// handles a packet, doing what needs to be done and sending the correct messages depending on the type of message recieved
-func handlePacket(msg Message) {
+func (network *Network) updateBucket(sender Contact) {
+
+	bucket := *network.Kademlia.RoutingTable.buckets[network.Kademlia.RoutingTable.getBucketIndex(sender.ID)]
+
+	if bucket.Len() <= bucketSize {
+		network.Kademlia.RoutingTable.AddContact(sender)
+	} else {
+		// might still be in bucket
+		closestContact := network.Kademlia.RoutingTable.FindClosestContacts(sender.ID, 1)
+		id := NewKademliaID("0000000000000000000000000000000000000000")
+
+		// find closest contact has 0 distance means we are already in the bucket
+		if closestContact[0].distance.Equals(id) {
+			network.Kademlia.RoutingTable.AddContact(sender)
+		} else {
+			// ping buckets head to see if alive
+			response, _ := network.SendPingMessage(bucket.list.Front().Value.(*Contact))
+			if response != nil {
+				return
+			} else {
+				network.Kademlia.RemoveContact(bucket.list.Front().Value.(*Contact))
+				network.Kademlia.RoutingTable.AddContact(sender)
+			}
+		}
+	}
+}
+
+/*
+
+
+
+
+
+
+
+
+
+
+
+
+ */
+
+func (network *Network) handlePacket(msg Message) {
 
 	switch msg.RPCtype {
 	case "PING":
 		fmt.Println("you can ping, you can jive, having the time of your life")
+
+		// add sender to my bucket
+		network.updateBucket(msg.Sender)
+
+		// send ack back
+		pingAck := Message{
+			Message: []byte("ping PONG, i hear you!"),
+			RPCtype: "PING_ACK",
+			Sender:  network.Kademlia.RoutingTable.me,
+		}
+		network.sendMessage(msg.Sender.Address, pingAck)
+
+	case "PING_ACK":
+		// add sender to my bucket
+		network.updateBucket(msg.Sender)
+
+		fmt.Println("ping ackked")
+
 	case "FIND_CONTACT":
+		// do kademlia stuff to find the contact
+		// add contacts to buckets?
 		fmt.Println("find me, find me, find me a contact after midnight")
 	case "FIND_DATA":
 		fmt.Println("data, data, data, must be funny in the rich mans world")
 	case "STORE":
 		fmt.Println("the winner stores it all, the loser has to fall")
 	default:
-		// fmt.Println("oh no something unexpected happened")
+		fmt.Println("oh no something unexpected happened")
 	}
 
 }
@@ -115,9 +178,13 @@ func handlePacket(msg Message) {
 
 
  */
-// sends a message (encoded as a []byte) over udp towards a target address
-func (network *Network) sendMessage(addr string, msg Message) {
-	conn, _ := net.Dial("udp", addr)
+// sends a message and returns its message if any...
+func (network *Network) sendMessage(addr string, msg Message) ([]byte, error) {
+	conn, err := net.Dial("udp", addr)
+	if err != nil {
+		fmt.Println("DIAL error:", err)
+	}
+	conn.SetDeadline(time.Now().Add(time.Second))
 	defer conn.Close()
 
 	marshalled_msg, err := json.Marshal(msg)
@@ -127,6 +194,14 @@ func (network *Network) sendMessage(addr string, msg Message) {
 	_, err = conn.Write(marshalled_msg)
 	if err != nil {
 		fmt.Println("Write error:", err)
+	}
+
+	buff := make([]byte, 1024)
+	len, err := conn.Read(buff)
+	if err == nil {
+		return buff[:len], nil
+	} else {
+		return nil, err
 	}
 }
 
@@ -145,27 +220,72 @@ func (network *Network) sendMessage(addr string, msg Message) {
 
  */
 // you guessed it, this function will send a ping message to a contact!
-func (network *Network) SendPingMessage(contact *Contact) {
+func (network *Network) SendPingMessage(contact *Contact) ([]byte, error) {
 	msg := Message{
 		Message: []byte("PING pong! this is a PING message!"),
 		RPCtype: "PING",
 		Sender:  network.Kademlia.RoutingTable.me,
 	}
-	// fmt.Println("original message:", msg.Message)
-	network.sendMessage(contact.Address, msg)
+	return network.sendMessage(contact.Address, msg)
 }
+
+/*
+
+
+
+
+
+
+
+
+
+
+
+
+ */
 
 func (network *Network) SendFindContactMessage(contact *Contact) {
 	// message := []byte("greetings traveler! this is a FIND_CONTACT message!")
 	// network.sendMessage("FIND_CONTACT", contact.Address, message)
 }
 
+/*
+
+
+
+
+
+
+
+
+
+
+
+
+ */
+
 func (network *Network) SendFindDataMessage(hash string) {
 	// message := []byte("well met friend! this is a FIND_DATA message!")
 	// network.sendMessage("FIND_DATA", contact.Address, message)
 }
 
+/*
+
+
+
+
+
+
+
+
+
+
+
+
+ */
+
 func (network *Network) SendStoreMessage(data []byte) {
-	// message := []byte("hello! this is a STORE message!")
-	// network.sendMessage("STORE", contact.Address, message)
+	// ok SendStoreMessage(data)
+	// vars skriver jag?
+	// vem blir skickad meddelandet?
 }
