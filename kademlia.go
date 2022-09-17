@@ -1,5 +1,4 @@
-package main
-
+package d7024e
 import (
 	"crypto/sha1"
 	"encoding/base64"

@@ -1,4 +1,4 @@
-package main
+package d7024e
 
 import (
 	"encoding/json"
@@ -285,8 +285,9 @@ func (network *Network) SendFindDataMessage(hash string) {
 
  */
 
-func (network *Network) SendStoreMessage(data []byte) {
+func (network *Network) SendStoreMessage(data []byte) (string, error){
 	// ok SendStoreMessage(data)
 	// vars skriver jag?
 	// vem blir skickad meddelandet?
+	return "nil", nil
 }
