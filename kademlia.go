@@ -35,3 +35,26 @@ func (kademlia *Kademlia) RemoveContact(contact *Contact) {
 
 	bucket.Remove(contact)
 }
+
+func (kademlia *Kademlia) AlphaClosest(contact *Contact, alpha int) []Contact {
+	kClosestContacts := kademlia.LookupContact(contact)
+	count := 0
+	if len(kClosestContacts) < alpha {
+		alphaClosest := make([]Contact, alpha)
+		for _, x := range kademlia.RoutingTable.buckets {
+			for e := x.list.Front(); e != nil; e = e.Next() {
+				alphaClosest = append(alphaClosest, e.Value.(Contact))
+				count++
+				if count == alpha {
+					return alphaClosest
+				}
+			}
+
+		}
+
+	} else {
+		return kClosestContacts[0:alpha]
+	}
+
+	return kClosestContacts
+}
