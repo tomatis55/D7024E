@@ -15,20 +15,22 @@ func main() {
 	port := ":80"
 	ip := arg[1]
 
+	fmt.Println("my ip is: ", ip)
+
 	network := &Network{}
 	_ = &Contact{}
 
 	// Initialize the super node
 	if ip == ipSuperNode {
 		me := NewContact(NewKademliaID(idSuperNode), ipSuperNode+port)
-		network = &Network{Kademlia{NewRoutingTable(me), 4, make(map[string][]byte)}}
+		network = &Network{Kademlia{NewRoutingTable(me), 4, make(map[string][]byte)}, 3}
 
-		network.Listen(ip, 80) // run on c0/super node and run the code below to test ping in another container
+		network.Listen(ipSuperNode, 80) // run on c0/super node and run the code below to test ping in another container
 
 		// Initialize the node and add the super node as a contact, then send a msg to let other nodes know of its existance
 	} else {
 		me := NewContact(NewRandomKademliaID(), ip+port)
-		network = &Network{Kademlia{NewRoutingTable(me), 4, make(map[string][]byte)}}
+		network = &Network{Kademlia{NewRoutingTable(me), 4, make(map[string][]byte)}, 3}
 		// add supernode as contact
 		network.Kademlia.RoutingTable.AddContact(NewContact(NewKademliaID(idSuperNode), ipSuperNode+port))
 		network.SendFindContactMessage(&me)
@@ -43,6 +45,7 @@ func main() {
 			fmt.Println(":(((((")
 		}
 
+		go network.Listen(ip, 80)
 		Pinger(*network, contact)
 	}
 
