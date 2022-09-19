@@ -53,8 +53,8 @@ func (kademlia *Kademlia) RemoveContact(contact *Contact) {
 	bucket.Remove(contact)
 }
 
-func (kademlia *Kademlia) AlphaClosest(contact *Contact, alpha int) []Contact {
-	kClosestContacts := kademlia.LookupContact(contact)
+func (kademlia *Kademlia) AlphaClosest(id *KademliaID, alpha int) []Contact {
+	kClosestContacts := kademlia.RoutingTable.FindClosestContacts(id, kademlia.K)
 	count := 0
 	if len(kClosestContacts) < alpha {
 		alphaClosest := make([]Contact, alpha)
