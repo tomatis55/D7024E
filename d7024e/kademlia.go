@@ -11,21 +11,21 @@ type Kademlia struct {
 	Data         map[string][]byte
 }
 
-func (kademlia *Kademlia) LookupContact(target *Contact) []Contact {
-	contacts := kademlia.RoutingTable.FindClosestContacts(target.ID, kademlia.K)
+func (kademlia *Kademlia) LookupContact(target *Contact) ContactCandidates {
+	contacts := ContactCandidates{kademlia.RoutingTable.FindClosestContacts(target.ID, kademlia.K)}
 	return contacts
 }
 
-func (kademlia *Kademlia) LookupData(encodedHash string) ([]byte, []Contact, bool) {
+func (kademlia *Kademlia) LookupData(encodedHash string) ([]byte, ContactCandidates, bool) {
 
 	data, ok := kademlia.Data[encodedHash]
 	if !ok {
 		hashID := NewKademliaID(encodedHash)
-		contacts := kademlia.RoutingTable.FindClosestContacts(hashID, kademlia.K)
+		contacts := ContactCandidates{kademlia.RoutingTable.FindClosestContacts(hashID, kademlia.K)}
 		return nil, contacts, ok
 
 	}
-	return data, nil, ok
+	return data, ContactCandidates{}, ok
 }
 
 func (kademlia *Kademlia) GetHash(data []byte) string {
@@ -53,7 +53,7 @@ func (kademlia *Kademlia) RemoveContact(contact *Contact) {
 	bucket.Remove(contact)
 }
 
-func (kademlia *Kademlia) AlphaClosest(id *KademliaID, alpha int) []Contact {
+func (kademlia *Kademlia) AlphaClosest(id *KademliaID, alpha int) ContactCandidates {
 	kClosestContacts := kademlia.RoutingTable.FindClosestContacts(id, kademlia.K)
 	count := 0
 	if len(kClosestContacts) < alpha {
@@ -63,15 +63,20 @@ func (kademlia *Kademlia) AlphaClosest(id *KademliaID, alpha int) []Contact {
 				alphaClosest = append(alphaClosest, e.Value.(Contact))
 				count++
 				if count == alpha {
-					return alphaClosest
+					contacts := ContactCandidates{alphaClosest}
+					contacts.Sort()
+					return contacts
 				}
 			}
 
 		}
 
 	} else {
-		return kClosestContacts[0:alpha]
+		contacts := ContactCandidates{kClosestContacts[0:alpha]}
+		contacts.Sort()
+		return contacts
 	}
-
-	return kClosestContacts
+	contacts := ContactCandidates{kClosestContacts}
+	contacts.Sort()
+	return contacts
 }

@@ -23,16 +23,16 @@ func TestKademlia(t *testing.T) {
 
 	result := kademlia.LookupContact(&c1)
 
-	if result[0].String() != c1.String() {
-		t.Error("got ", result[0].String(), "want ", c1.String())
+	if result.contacts[0].String() != c1.String() {
+		t.Error("got ", result.contacts[0].String(), "want ", c1.String())
 	}
 
 	kademlia.RemoveContact(&c1)
 
 	result = kademlia.LookupContact(&c1)
 
-	if result[0].String() == c1.String() {
-		t.Error("got ", result[0].String(), "want ", c1.String())
+	if result.contacts[0].String() == c1.String() {
+		t.Error("got ", result.contacts[0].String(), "want ", c1.String())
 	}
 
 	data1 := []byte{123, 160, 161, 255, 79, 101}

@@ -31,7 +31,7 @@ type Message struct {
 	QueryContact *Contact
 	Hash         string
 	Data         []byte
-	Contacts     []Contact
+	Contacts     ContactCandidates
 
 	// more?
 }
@@ -85,7 +85,7 @@ func (network *Network) updateBucket(sender Contact) {
 		closestContact := network.Kademlia.LookupContact(&sender)
 
 		// find closest contact has 0 distance means we are already in the bucket
-		if closestContact[0].distance.Equals(NewKademliaID("0000000000000000000000000000000000000000")) {
+		if closestContact.contacts[0].distance.Equals(NewKademliaID("0000000000000000000000000000000000000000")) {
 			network.Kademlia.RoutingTable.AddContact(sender) // should move us to tail of bucket
 		} else {
 			// ping buckets head to see if alive
@@ -174,6 +174,8 @@ func (network *Network) handlePacket(msg Message) {
 	case "FIND_DATA_ACK":
 		// add sender to my bucket
 		network.updateBucket(msg.Sender)
+
+		network.Channel <- msg
 		/*
 			TODO:
 		*/
@@ -262,10 +264,10 @@ func (network *Network) SendFindContactMessage(contact *Contact) {
 	alphaClosest := network.Kademlia.AlphaClosest(contact.ID, network.Alpha)
 	// closest := alphaClosest[0] // somewhere we want to store the contact closest to queryContact we have seen yet, question is where
 
-	fmt.Println("len(alphaClosest):", len(alphaClosest))
+	fmt.Println("alphaClosest.Len():", alphaClosest.Len())
 
-	for i := 0; i <= network.Alpha && i < len(alphaClosest); i++ {
-		network.sendMessage(alphaClosest[i].Address, msg)
+	for i := 0; i <= network.Alpha && i < alphaClosest.Len(); i++ {
+		network.sendMessage(alphaClosest.contacts[i].Address, msg)
 	}
 }
 
@@ -333,30 +335,39 @@ func (network *Network) FindClosestNodes(msg Message) {
 	//	If there are fewer than alpha contacts in that bucket, contacts are selected from other buckets.
 	//	The contact closest to the target key, closestNode, is noted.
 	alphaClosest := network.Kademlia.AlphaClosest(&id, network.Alpha)
-	closestNode := alphaClosest[0]
+	closestNode := alphaClosest.contacts[0]
+	nodesContacted := ContactCandidates{make([]Contact, 0)}
 
 	_ = closestNode
 
 	//	The first alpha contacts selected are used to create a shortlist for the search.
-	shortList := make([]Contact, network.Kademlia.K)
-	for i := 0; i < len(alphaClosest) && i < len(shortList); i++ {
-		shortList[i] = alphaClosest[i]
-	}
+	shortList := ContactCandidates{alphaClosest.contacts}
+	shortList.Append(alphaClosest.contacts)
+	nodesContacted.Append(alphaClosest.contacts)
 
 	//	The node then sends parallel, asynchronous FIND_* RPCs to the alpha contacts in the shortlist.
 	//	Each contact, if it is live, should normally return k triples.
 	//	If any of the alpha contacts fails to reply, it is removed from the shortlist, at least temporarily.
-	for _, x := range shortList {
+	for _, x := range shortList.contacts {
 		go func() {
 			network.sendMessage(x.Address, msg)
 
 		}()
-
+		nodesContacted.AddOne(x)
 	}
 
-	for range shortList {
-		closestContacts := <-network.Channel
-		_ = closestContacts
+	//  The node then fills the shortlist with contacts from the replies received.
+	//  These are those closest to the target. From the shortlist it selects another alpha contacts.
+	//  The only condition for this selection is that they have not already been contacted.
+	//  Once again a FIND_* RPC is sent to each in parallel.
+	for b := 0; b < shortList.Len() && b < network.Alpha; b++ {
+		message := <-network.Channel
+		for _, x := range message.Contacts.contacts {
+			if !nodesContacted.Contains(x) {
+				shortList.AddOne(x)
+			}
+
+		}
 	}
 
 	//TODO

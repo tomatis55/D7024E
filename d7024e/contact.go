@@ -40,6 +40,28 @@ type ContactCandidates struct {
 	contacts []Contact
 }
 
+func (candidates *ContactCandidates) AddOne(contact Contact) {
+	candidates.contacts = append(candidates.contacts, contact)
+}
+
+func (candidates *ContactCandidates) Contains(contact Contact) bool {
+	contains := false
+	for _, x := range candidates.contacts {
+		if x.ID.Equals(contact.ID) {
+			contains = true
+		}
+	}
+	return contains
+}
+
+func (candidates *ContactCandidates) Remove(contact Contact) {
+	for i, x := range candidates.contacts {
+		if x.ID.Equals(contact.ID) {
+			candidates.contacts = append(candidates.contacts[:i], candidates.contacts[i+1:]...)
+		}
+	}
+}
+
 // Append an array of Contacts to the ContactCandidates
 func (candidates *ContactCandidates) Append(contacts []Contact) {
 	candidates.contacts = append(candidates.contacts, contacts...)

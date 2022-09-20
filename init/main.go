@@ -40,7 +40,7 @@ func main() {
 
 		// test function to see if the super node is added as a contact
 		retContact := network.Kademlia.LookupContact(&contact)
-		if retContact[0].Address == contact.Address {
+		if retContact.GetContacts(6)[0].Address == contact.Address {
 			fmt.Println("Jag existerar!")
 		} else {
 			fmt.Println(":(((((")

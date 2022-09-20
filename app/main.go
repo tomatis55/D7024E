@@ -30,7 +30,7 @@ func main() {
 
 	fmt.Println("Contact searching for: ", c1.String())
 	//fmt.Println(result)
-	for _, c := range result {
+	for _, c := range result.GetContacts(20) {
 		fmt.Println(c.String())
 	}
 
