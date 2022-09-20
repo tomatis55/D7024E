@@ -41,12 +41,15 @@ func TestKademlia(t *testing.T) {
 	hash1 := kademlia.Store(data1)
 	hash2 := kademlia.Store(data2)
 
-	dataResult, _ := kademlia.LookupData(hash1)
+	_ = hash1
+	_ = hash2
+
+	dataResult, _, _ := kademlia.LookupData(hash1)
 	if string(dataResult) != string(data1) {
 		t.Error("got ", string(dataResult), "want ", string(data1))
 	}
 
-	dataResult, _ = kademlia.LookupData(hash2)
+	dataResult, _, _ = kademlia.LookupData(hash2)
 	if string(dataResult) != string(data2) {
 		t.Error("got ", string(dataResult), "want ", string(data2))
 	}
