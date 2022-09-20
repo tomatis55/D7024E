@@ -125,7 +125,7 @@ func (network *Network) handlePacket(msg Message) {
 	case "PING_ACK":
 		// add sender to my bucket
 		network.updateBucket(msg.Sender)
-		fmt.Println(msg.Message)
+		fmt.Println(string(msg.Message))
 
 	case "FIND_CONTACT":
 		// add sender to my bucket
@@ -230,6 +230,7 @@ func (network *Network) sendMessage(addr string, msg Message) ([]byte, error) {
 
 	buff := make([]byte, 1024)
 	len, err := conn.Read(buff)
+	fmt.Println("conn.Read(buff): ", len, "		", err)
 	if err == nil {
 		fmt.Println("i heard something...")
 		return buff[:len], nil

@@ -69,7 +69,12 @@ func (candidates *ContactCandidates) Append(contacts []Contact) {
 
 // GetContacts returns the first count number of Contacts
 func (candidates *ContactCandidates) GetContacts(count int) []Contact {
-	return candidates.contacts[:count]
+	if count > candidates.Len() {
+		return candidates.contacts
+	} else {
+		return candidates.contacts[:count]
+	}
+
 }
 
 // Sort the Contacts in ContactCandidates

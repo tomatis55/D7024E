@@ -2,7 +2,7 @@
 
 # to build or not to build?
 cd
-sudo docker build . -t kadlab
+sudo docker build /home/romerm-8/gocode/ -t kadlab
 
 sudo docker rm $(sudo docker ps -q -a) --force
 
@@ -22,7 +22,7 @@ sudo docker container run -it --ip 172.20.0.2 --net net --name "c0" kadlab
 
 
 # Guide:
-# Run ./.start_network.sh in server
+# Run /home/romerm-8/gocode/src/init/.start_network.sh in server
 # In the container terminal, run ./.start_node.sh
 
 # In a new server terminal, run the following:
