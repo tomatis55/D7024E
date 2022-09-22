@@ -330,7 +330,7 @@ func (network *Network) SendStoreMessage(data []byte) (string, error) { // retur
 	return "", nil
 }
 
-func (network *Network) FindClosestNodes(msg Message) []Contact {
+func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 	var id KademliaID
 	switch msg.RPCtype {
 	case "FIND_VALUE":
@@ -445,6 +445,6 @@ func (network *Network) FindClosestNodes(msg Message) []Contact {
 
 	}
 
-	return shortList.contacts
+	return shortList
 
 }

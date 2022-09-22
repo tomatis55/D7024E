@@ -40,10 +40,12 @@ type ContactCandidates struct {
 	contacts []Contact
 }
 
+// Adds one contact to the contacts list
 func (candidates *ContactCandidates) AddOne(contact Contact) {
 	candidates.contacts = append(candidates.contacts, contact)
 }
 
+// Checks if the contactCandidates contains a contact
 func (candidates *ContactCandidates) Contains(contact Contact) bool {
 	contains := false
 	for _, x := range candidates.contacts {
@@ -54,6 +56,7 @@ func (candidates *ContactCandidates) Contains(contact Contact) bool {
 	return contains
 }
 
+// Removes a contact from the internal contacts list
 func (candidates *ContactCandidates) Remove(contact Contact) {
 	for i, x := range candidates.contacts {
 		if x.ID.Equals(contact.ID) {
@@ -65,6 +68,11 @@ func (candidates *ContactCandidates) Remove(contact Contact) {
 // Append an array of Contacts to the ContactCandidates
 func (candidates *ContactCandidates) Append(contacts []Contact) {
 	candidates.contacts = append(candidates.contacts, contacts...)
+}
+
+// Returns a contact on a specific index in the contact list
+func (candidates *ContactCandidates) Index(index int) Contact {
+	return candidates.contacts[index]
 }
 
 // GetContacts returns the first count number of Contacts
