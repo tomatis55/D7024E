@@ -330,7 +330,7 @@ func (network *Network) SendStoreMessage(data []byte) (string, error) { // retur
 	return "", nil
 }
 
-func (network *Network) FindClosestNodes(msg Message) {
+func (network *Network) FindClosestNodes(msg Message) []Contact {
 	var id KademliaID
 	switch msg.RPCtype {
 	case "FIND_VALUE":
@@ -356,20 +356,27 @@ func (network *Network) FindClosestNodes(msg Message) {
 	//	The node then sends parallel, asynchronous FIND_* RPCs to the alpha contacts in the shortlist.
 	//	Each contact, if it is live, should normally return k triples.
 	//	If any of the alpha contacts fails to reply, it is removed from the shortlist, at least temporarily.
-	for _, x := range shortList.contacts {
+
+	messageList := make([]Message, network.Alpha)
+	for _, x := range alphaClosest.contacts {
 		go func() {
 			network.sendMessage(x.Address, msg)
-
 		}()
 		nodesContacted.AddOne(x)
+
+		select {
+		case res := <-network.Channel:
+			messageList = append(messageList, res)
+
+		case <-time.After(3 * time.Second):
+			shortList.Remove(x)
+		}
+
 	}
 
 	//  The node then fills the shortlist with contacts from the replies received.
-	//  These are those closest to the target. From the shortlist it selects another alpha contacts.
-	//  The only condition for this selection is that they have not already been contacted.
-	//  Once again a FIND_* RPC is sent to each in parallel.
-	for b := 0; b < shortList.Len() && b < network.Alpha; b++ {
-		message := <-network.Channel
+	//  These are those closest to the target.
+	for _, message := range messageList {
 		for _, x := range message.Contacts.contacts {
 			if !nodesContacted.Contains(x) {
 				shortList.AddOne(x)
@@ -377,6 +384,67 @@ func (network *Network) FindClosestNodes(msg Message) {
 
 		}
 	}
+	shortList.Sort()
+	closestNode = shortList.contacts[0]
 
-	//TODO
+	//  From the shortlist it selects another alpha contacts.
+	//  The only condition for this selection is that they have not already been contacted.
+	//  Once again a FIND_* RPC is sent to each in parallel.
+	for {
+		for i := 0; i < network.Alpha; i++ {
+			for _, x := range shortList.contacts {
+				if !nodesContacted.Contains(x) {
+					go func() {
+						network.sendMessage(x.Address, msg)
+					}()
+
+					nodesContacted.AddOne(x)
+					select {
+					case res := <-network.Channel:
+						messageList = append(messageList, res)
+
+					case <-time.After(3 * time.Second):
+						shortList.Remove(x)
+					}
+				}
+				break
+
+			}
+
+		}
+
+		// Each such parallel search updates closestNode, the closest node seen so far.
+		// The sequence of parallel searches is continued until either no node in the sets returned
+		// is closer than the closest node already seen or the initiating node has accumulated k probed
+		// and known to be active contacts.
+		//
+		// If a cycle doesn't find a closer node, if closestNode is unchanged,
+		// then the initiating node sends a FIND_* RPC to each of the k closest nodes that it has not already queried.
+		shortList.Sort()
+		if closestNode == shortList.contacts[0] {
+			break
+		} else {
+			closestNode = shortList.contacts[0]
+		}
+
+		kProbed := false
+		count := 0
+		if shortList.Len() >= network.Kademlia.K {
+			for _, x := range shortList.contacts {
+				if nodesContacted.Contains(x) {
+					count++
+				}
+				if count == network.Kademlia.K {
+					kProbed = true
+				}
+			}
+		}
+		if kProbed {
+			break
+		}
+
+	}
+
+	return shortList.contacts
+
 }
