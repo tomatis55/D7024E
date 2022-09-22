@@ -7,26 +7,15 @@ import (
 	"time"
 )
 
-/*
-M1. Network formation. [5p]. Your nodes must be able to form networks as described in the Kademlia
-	paper. Kademlia is a protocol for facilitating Distributed Hash Tables (DHTs). Concretely,
-	the following aspects of the algorithm must be implemented:
-	(a) Pinging. This means that you must implement and use the PING message.
-	(b) Network joining. Given the IP address, and any other data you decide, of any single
-		node, a node must be able to join or form a network with that node.
-	(c) Node lookup. When part of a network, each node must be able to retrieve the contact
-		information of any other node in the same network.
-*/
-
 type Network struct {
 	Kademlia Kademlia
 	alpha    int
+	// channel  chan []Contact
 }
 
 type Message struct {
 	RPCtype      string // PING, PING_ACK, FIND_CONTACT, FIND_CONTACT_ACK, FIND_DATA, FIND_DATA_ACK, STORE, STORE_ACK
 	Sender       Contact
-	Message      []byte
 	QueryContact *Contact
 	Hash         string
 	Data         []byte
@@ -88,7 +77,14 @@ func (network *Network) updateBucket(sender Contact) {
 			network.Kademlia.RoutingTable.AddContact(sender) // should move us to tail of bucket
 		} else {
 			// ping buckets head to see if alive
-			response, _ := network.SendPingMessage(bucket.list.Front().Value.(*Contact))
+			/*
+				TODO TODO TODO
+			*/
+			// DONT ACTUALLY DO THIS, THIS IS JUST TO HAVE A VALUE FOR RESPONSE THAT CAN BE nil
+			addr := net.UDPAddr{Port: 2, IP: net.ParseIP("2")}
+			_, response := net.ListenUDP("udp", &addr)
+			// OK THE REST MIGHT BE FINE
+
 			if response != nil {
 				// if alive we drop the new contact
 				fmt.Println("new contact dropped since bucket is alive")
@@ -117,7 +113,6 @@ func (network *Network) handlePacket(msg Message) {
 
 		// send ack back
 		ack := Message{
-			Message: []byte("ping PONG, i hear you!"),
 			RPCtype: "PING_ACK",
 			Sender:  network.Kademlia.RoutingTable.me,
 		}
@@ -126,46 +121,48 @@ func (network *Network) handlePacket(msg Message) {
 	case "PING_ACK":
 		// add sender to my bucket
 		network.updateBucket(msg.Sender)
-		fmt.Println(msg.Message)
+		fmt.Println(string("ping PONG, i hear you!"))
 
 	case "FIND_CONTACT":
-		// add sender to my bucket
-		network.updateBucket(msg.Sender)
-		fmt.Println("find me, find me, find me a contact after midnight")
 		/*
 			TODO:
 			do more kademlia stuff, what does a node do when it recieves a find_contact message?
 		*/
+		// add sender to my bucket
+		network.updateBucket(msg.Sender)
+		fmt.Println("find me, find me, find me a contact after midnight")
 
 		// send ack back
 		ack := Message{
-			Message: []byte("find contact acknowledged"),
 			RPCtype: "FIND_CONTACT_ACK",
 			Sender:  network.Kademlia.RoutingTable.me,
-			// PROLLY MORE STUFF
 		}
 		network.sendMessage(msg.Sender.Address, ack)
 
 	case "FIND_CONTACT_ACK":
-		// add sender to my bucket
-		network.updateBucket(msg.Sender)
 		/*
 			TODO:
 		*/
+		// add sender to my bucket
+		network.updateBucket(msg.Sender)
+		fmt.Println("contact found, buckets updated")
 
 	case "FIND_DATA":
+		/*
+			if we recieve this message its because someone found that we probably contain the data someone is asking for
+
+			now we just want to send the data back, this should be doable by using the hash as a key in the datamap in kademlia
+		*/
 		// add sender to my bucket
 		network.updateBucket(msg.Sender)
 		fmt.Println("data, data, data, must be funny in the rich mans world")
-		/*
-			TODO:
-		*/
 
+		// recover and return the data
+		data := network.Kademlia.Data[msg.Hash]
 		ack := Message{
-			Message: []byte("find data acknowledged"),
 			RPCtype: "FIND_DATA_ACK",
 			Sender:  network.Kademlia.RoutingTable.me,
-			// PROLLY MORE STUFF
+			Data:    data,
 		}
 		network.sendMessage(msg.Sender.Address, ack)
 
@@ -173,11 +170,11 @@ func (network *Network) handlePacket(msg Message) {
 		// add sender to my bucket
 		network.updateBucket(msg.Sender)
 		/*
-			TODO:
 			print data
-			print nodeID of node contain data
+			print nodeID of node containing data
 		*/
 		fmt.Println("I found the data you were looking for:", msg.Data)
+		fmt.Println("in the node:                          ", msg.Sender.ID)
 
 	case "STORE":
 		// add sender to my bucket
@@ -187,7 +184,6 @@ func (network *Network) handlePacket(msg Message) {
 		hash := network.Kademlia.Store(msg.Data)
 
 		ack := Message{
-			Message: []byte("store acknowledged"),
 			RPCtype: "STORE_ACK",
 			Sender:  network.Kademlia.RoutingTable.me,
 			Hash:    hash,
@@ -207,7 +203,7 @@ func (network *Network) handlePacket(msg Message) {
 }
 
 // sends a message and returns its response if any... i hope
-func (network *Network) sendMessage(addr string, msg Message) ([]byte, error) {
+func (network *Network) sendMessage(addr string, msg Message) {
 	conn, err := net.Dial("udp", addr)
 	if err != nil {
 		fmt.Println("DIAL error:", err)
@@ -223,25 +219,15 @@ func (network *Network) sendMessage(addr string, msg Message) ([]byte, error) {
 	if err != nil {
 		fmt.Println("Write error:", err)
 	}
-
-	buff := make([]byte, 1024)
-	len, err := conn.Read(buff)
-	if err == nil {
-		fmt.Println("i heard something...")
-		return buff[:len], nil
-	} else {
-		return nil, err
-	}
 }
 
 // this function will send a ping message to a contact!
-func (network *Network) SendPingMessage(contact *Contact) ([]byte, error) {
+func (network *Network) SendPingMessage(contact *Contact) {
 	msg := Message{
-		Message: []byte("PING pong! this is a PING message!"),
 		RPCtype: "PING",
 		Sender:  network.Kademlia.RoutingTable.me,
 	}
-	return network.sendMessage(contact.Address, msg)
+	network.sendMessage(contact.Address, msg)
 }
 
 /*
@@ -249,7 +235,6 @@ Will tell the Listener to terminate itself.
 */
 func (network *Network) SendTerminateNodeMessage() {
 	msg := Message{
-		Message: []byte("At Terminate Napoleon did surrender"),
 		RPCtype: "TERMINATE_NODE",
 		Sender:  network.Kademlia.RoutingTable.me,
 	}
@@ -258,19 +243,15 @@ func (network *Network) SendTerminateNodeMessage() {
 
 func (network *Network) SendFindContactMessage(contact *Contact) {
 	msg := Message{
-		Message:      []byte("greetings traveler! this is a FIND_CONTACT message!"),
-		RPCtype:      "FIND_CONTACT",
+		RPCtype:      "FIND_CONTACT", // basically ive found you as a contact pls add me to your bucket.
 		Sender:       network.Kademlia.RoutingTable.me,
 		QueryContact: contact,
 	}
 
-	alphaClosest := network.Kademlia.AlphaClosest(contact.ID, network.alpha)
-	// closest := alphaClosest[0] // somewhere we want to store the contact closest to queryContact we have seen yet, question is where
+	closestNodes := network.FindClosesetNodes(contact.ID)
 
-	for i := 0; i <= network.alpha && i < len(alphaClosest); i++ {
-		fmt.Println("i:", i)
-		network.sendMessage(alphaClosest[i].Address, msg)
-	}
+	network.sendMessage(closestNodes[0].Address, msg)
+
 }
 
 /*
@@ -281,7 +262,6 @@ This is a primitive operation, not an iterative one.
 */
 func (network *Network) SendFindDataMessage(hash string) { // Emma needs this to print the data and the node containing the data
 	msg := Message{
-		Message: []byte("greetings traveler! this is a FIND_CONTACT message!"),
 		RPCtype: "FIND_CONTACT",
 		Sender:  network.Kademlia.RoutingTable.me,
 		Hash:    hash,
@@ -300,19 +280,23 @@ and make it available for later retrieval by that key.
 This is a primitive operation, not an iterative one.
 */
 func (network *Network) SendStoreMessage(data []byte) { // prints hash when handling response
+	msg := Message{
+		RPCtype: "STORE",
+		Sender:  network.Kademlia.RoutingTable.me,
+		Data:    data,
+	}
 
 	// find which node we want to store the data in
 	// we do this by hashing the data and finding the node closest to the value of the hash?
-	// hashID := network.Kademlia.getHashID(data)
-	// closestNodes := network.FindClosesetNodes(hashID) // list
+	hash := network.Kademlia.GetHash(data)
+	hashID := network.Kademlia.GetHashID(hash)
+	closestNodes := network.FindClosesetNodes(&hashID) // list
 
 	// and then tell closest node to actually store it
-	// msg := Message{
-	// 	Message: []byte("this is a STORE message!"),
-	// 	RPCtype: "STORE",
-	// 	Sender:  network.Kademlia.RoutingTable.me,
-	// 	Data:    data,
-	// 	Hash:    hashID,
-	// }
-	// network.sendMessage(closestNodes[0].Address, msg)
+	network.sendMessage(closestNodes[0].Address, msg)
+}
+
+func (network *Network) FindClosesetNodes(hashID *KademliaID) []Contact {
+	//TODO
+	return nil
 }
