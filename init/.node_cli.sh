@@ -3,6 +3,7 @@
 # Takes a single argument, the contents of the file you are uploading, and outputs the
 # hash of the object, if it could be uploaded successfully.
 function put(){
+    echo "in put"
     source ~/.profile
     cd /home/gocode/src/put
     go run put.go $1
@@ -12,6 +13,7 @@ function put(){
 # Takes a hash as its only argument, and outputs the contents of the object and the
 # node it was retrieved from, if it could be downloaded successfully.
 function get(){
+    echo "in get"
     source ~/.profile
     cd /home/gocode/src/get
     go run get.go $1
@@ -20,6 +22,7 @@ function get(){
 
 # Terminates the node (kill it)
 function exit2(){
+    echo "in exit2"
     source ~/.profile
     cd /home/gocode/src/exit
     go run exit.go $1

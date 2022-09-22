@@ -254,6 +254,21 @@ func (network *Network) SendPingMessage(contact *Contact) ([]byte, error) {
 /*
  */
 
+ /*
+Will tell the Listener to terminate itself.
+*/
+func (network *Network) SendTerminateNodeMessage() {
+	msg := Message{
+		Message: []byte("At Terminate Napoleon did surrender"),
+		RPCtype: "TERMINATE_NODE",
+		Sender:  network.Kademlia.RoutingTable.me,
+	}
+	network.sendMessage(network.Kademlia.RoutingTable.me.Address, msg)
+}
+
+/*
+ */
+
 func (network *Network) SendFindContactMessage(contact *Contact) {
 	msg := Message{
 		Message:      []byte("greetings traveler! this is a FIND_CONTACT message!"),
