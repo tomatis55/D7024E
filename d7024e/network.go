@@ -187,7 +187,7 @@ func (network *Network) handlePacket(msg Message) {
 		network.updateBucket(msg.Sender)
 		network.Channel <- msg
 		if msg.Data != nil {
-			fmt.Println("I found the data you were looking for:", msg.Data)
+			fmt.Println("I found the data you were looking for:", string(msg.Data))
 			fmt.Println("in the node:                          ", msg.Sender.ID)
 		} else {
 			fmt.Println("no data exist at provided hash :(")
