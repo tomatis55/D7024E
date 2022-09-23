@@ -43,17 +43,6 @@ func init(){
 }
 
 func main() {
-	arg := os.Args
-	ip := arg[1]
-
-	contact := NodeNetwork.Kademlia.RoutingTable.FindClosestContacts(NewKademliaID("0000000000000000000000000000000000000001"), 2)
-	fmt.Println("Number of contacts: ", len(contact))
-	if len(contact) > 0{
-		fmt.Println("Closest contact: ",contact[0].Address)
-	}
-	
-
-	go NodeNetwork.Listen(ip, 80)
 
 	loop := true
 	for loop{
