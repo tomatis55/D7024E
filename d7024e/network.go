@@ -285,8 +285,7 @@ func (network *Network) SendFindDataMessage(hash string) { // Emma needs this to
 		Hash:    hash,
 	}
 
-	target := network.FindClosestNodes(msg).contacts[0]
-	network.sendMessage(target.Address, msg)
+	network.FindClosestNodes(msg)
 }
 
 /*
@@ -312,10 +311,9 @@ func (network *Network) SendStoreMessage(data []byte) { // prints hash when hand
 		Data:    data,
 		Hash:    hash,
 	}
-	closestNodes := network.FindClosestNodes(msg) // list
+	network.FindClosestNodes(msg) // list
 
 	// and then tell closest node to actually store it
-	network.sendMessage(closestNodes.contacts[0].Address, msg)
 }
 
 func (network *Network) FindClosestNodes(msg Message) ContactCandidates {

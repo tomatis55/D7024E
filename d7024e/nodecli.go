@@ -8,7 +8,7 @@ import (
 
 func Get(hash string) {
 
-	if len(hash) == 20 && isHexString(hash){
+	if len(hash) == 40 && isHexString(hash){
 
 		NodeNetwork.SendFindDataMessage(hash)
 		
