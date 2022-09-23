@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"encoding/hex"
 	"time"
-	"os/exec"
 )
 
 func Get(hash string) {
@@ -39,7 +38,6 @@ func Put(dataStr string) {
 
 func Exit() {
 	NodeNetwork.SendTerminateNodeMessage()
-	exec.Command("kill -s SIGTERM 1")
 }
 
 func Ping(ip string) {
