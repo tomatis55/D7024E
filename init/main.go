@@ -14,7 +14,7 @@ func init(){
 	fmt.Println("Hello world")
 	arg := os.Args
 
-	idSuperNode := "0000000000000000000000000000000000000000"
+	idSuperNode := "0000000000000000000000000000000000000001"
 	ipSuperNode := "172.20.0.2"
 	port := ":80"
 	ip := arg[1]

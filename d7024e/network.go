@@ -155,7 +155,6 @@ func (network *Network) handlePacket(msg Message) {
 			TODO:
 		*/
 		// add sender to my bucket
-		fmt.Println("In find_contact_ack")
 		network.updateBucket(msg.Sender)
 		network.Channel <- msg
 		fmt.Println("contact:", msg.Sender.ID, "found, buckets updated")
@@ -260,15 +259,14 @@ func (network *Network) SendTerminateNodeMessage() {
 
 func (network *Network) SendFindContactMessage(contact *Contact) {
 
-	fmt.Println("Sending a find contact message to: ", contact.Address)
-
 	msg := Message{
 		RPCtype:      "FIND_CONTACT", // basically ive found you as a contact pls add me to your bucket.
 		Sender:       network.Kademlia.RoutingTable.me,
 		QueryContact: contact,
 	}
 
-	network.FindClosestNodes(msg)
+	_ = network.FindClosestNodes(msg)
+	// network.updateBucket()
 
 }
 
@@ -337,7 +335,6 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 	shortList.Append(alphaClosest.contacts)
 	nodesContacted.Append(alphaClosest.contacts)
 
-	fmt.Println(nodesContacted.Contains(alphaClosest.contacts[0]))
 
 	//	The node then sends parallel, asynchronous FIND_* RPCs to the alpha contacts in the shortlist.
 	//	Each contact, if it is live, should normally return k triples.
@@ -346,18 +343,15 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 	messageList := make([]Message, network.Alpha)
 	for _, x := range alphaClosest.contacts {
 		go func() {
-			fmt.Println("In for loop, x:",x.Address)
 			network.sendMessage(x.Address, msg)
 		}()
 		nodesContacted.AddOne(x)
 
 		select {
 		case res := <-network.Channel:
-			fmt.Println("here I am")
 			messageList = append(messageList, res)
 
 		case <-time.After(10 * time.Second):
-			fmt.Println("here I am again")
 			fmt.Println(x.Address)
 			shortList.Remove(x)
 		}
@@ -382,7 +376,6 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 		for i := 0; i < network.Alpha; i++ {
 			for _, x := range shortList.contacts {
 				if !nodesContacted.Contains(x) {
-					fmt.Println("in if, sending message to contact:", x.Address)
 					go func() {
 						network.sendMessage(x.Address, msg)
 					}()
@@ -436,6 +429,6 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 			break
 		}
 	}
-
+	fmt.Println(shortList)
 	return shortList
 }
