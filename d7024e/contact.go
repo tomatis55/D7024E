@@ -60,7 +60,10 @@ func (candidates *ContactCandidates) Contains(contact Contact) bool {
 func (candidates *ContactCandidates) Remove(contact Contact) {
 	for i, x := range candidates.contacts {
 		if x.ID.Equals(contact.ID) {
-			candidates.contacts = append(candidates.contacts[:i], candidates.contacts[i+1:]...)
+			copy(candidates.contacts[i:], candidates.contacts[i+1:])               // Shift a[i+1:] left one index.
+			candidates.contacts[len(candidates.contacts)-1] = Contact{}            // Erase last element (write zero value).
+			candidates.contacts = candidates.contacts[:len(candidates.contacts)-1] // Truncate slice.
+			return
 		}
 	}
 }
