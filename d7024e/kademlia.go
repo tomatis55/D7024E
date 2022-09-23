@@ -63,6 +63,7 @@ func (kademlia *Kademlia) RemoveContact(contact *Contact) {
 	bucket.Remove(contact)
 }
 
+// Returns the alpha closest nodes to the id that is provided with the alpha value provided
 func (kademlia *Kademlia) AlphaClosest(id *KademliaID, alpha int) ContactCandidates {
 	kClosestContacts := kademlia.RoutingTable.FindClosestContacts(id, kademlia.K)
 	count := 0
