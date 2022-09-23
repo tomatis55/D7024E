@@ -76,6 +76,7 @@ func (network *Network) updateBucket(sender Contact) {
 			network.Kademlia.RoutingTable.AddContact(sender) // should move us to tail of bucket
 		} else {
 			// TODO TODO TODO
+			// // ping buckets head to see if alive
 			go func() {
 				network.SendPingMessage(bucket.list.Front().Value.(*Contact))
 			}()
