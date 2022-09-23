@@ -9,8 +9,8 @@ import (
 
 type Network struct {
 	Kademlia Kademlia
-	alpha    int
-	// channel  chan []Contact
+	Alpha    int
+	Channel  chan Message
 }
 
 type Message struct {
@@ -19,6 +19,7 @@ type Message struct {
 	QueryContact *Contact
 	Hash         string
 	Data         []byte
+	Contacts     ContactCandidates
 	// more?
 }
 
@@ -65,36 +66,27 @@ func (network *Network) updateBucket(sender Contact) {
 
 	if bucket.Len() <= bucketSize {
 		// if the bucket in nonfull we just add the new contact
-		fmt.Println("contact updated in non-full bucket")
 		network.Kademlia.RoutingTable.AddContact(sender)
 	} else {
 		// bucket is full but sender might still be in the bucket
 		closestContact := network.Kademlia.LookupContact(&sender)
 
 		// find closest contact has 0 distance means we are already in the bucket
-		if closestContact[0].distance.Equals(NewKademliaID("0000000000000000000000000000000000000000")) {
-			fmt.Println("existing contact updated in full bucket")
+		if closestContact.contacts[0].distance.Equals(NewKademliaID("0000000000000000000000000000000000000000")) {
 			network.Kademlia.RoutingTable.AddContact(sender) // should move us to tail of bucket
 		} else {
-			// ping buckets head to see if alive
-			/*
-				TODO TODO TODO
-			*/
-			// DONT ACTUALLY DO THIS, THIS IS JUST TO HAVE A VALUE FOR RESPONSE THAT CAN BE nil
-			addr := net.UDPAddr{Port: 2, IP: net.ParseIP("2")}
-			_, response := net.ListenUDP("udp", &addr)
-			// OK THE REST MIGHT BE FINE
+			// TODO TODO TODO
 
-			if response != nil {
-				// if alive we drop the new contact
-				fmt.Println("new contact dropped since bucket is alive")
-				return
-			} else {
-				// if no response we remove dead contact and replace it with the new sender
-				network.Kademlia.RemoveContact(bucket.list.Front().Value.(*Contact))
-				network.Kademlia.RoutingTable.AddContact(sender)
-				fmt.Println("new contact replaced dead node in full bucket")
-			}
+			// // ping buckets head to see if alive
+			// response, _ := network.SendPingMessage(bucket.list.Front().Value.(*Contact))
+			// if response != nil {
+			// 	// if alive we drop the new contact
+			// 	return
+			// } else {
+			// 	// if no response we remove dead contact and replace it with the new sender
+			// 	network.Kademlia.RemoveContact(bucket.list.Front().Value.(*Contact))
+			// 	network.Kademlia.RoutingTable.AddContact(sender)
+			// }
 		}
 	}
 }
@@ -131,11 +123,13 @@ func (network *Network) handlePacket(msg Message) {
 		// add sender to my bucket
 		network.updateBucket(msg.Sender)
 		fmt.Println("find me, find me, find me a contact after midnight")
+		contacts := network.Kademlia.LookupContact(msg.QueryContact)
 
 		// send ack back
 		ack := Message{
-			RPCtype: "FIND_CONTACT_ACK",
-			Sender:  network.Kademlia.RoutingTable.me,
+			RPCtype:  "FIND_CONTACT_ACK",
+			Sender:   network.Kademlia.RoutingTable.me,
+			Contacts: contacts,
 		}
 		network.sendMessage(msg.Sender.Address, ack)
 
@@ -145,7 +139,7 @@ func (network *Network) handlePacket(msg Message) {
 		*/
 		// add sender to my bucket
 		network.updateBucket(msg.Sender)
-		fmt.Println("contact found, buckets updated")
+		fmt.Println("contact:", msg.Sender.ID, "found, buckets updated")
 
 	case "FIND_DATA":
 		/*
@@ -156,25 +150,28 @@ func (network *Network) handlePacket(msg Message) {
 		// add sender to my bucket
 		network.updateBucket(msg.Sender)
 		fmt.Println("data, data, data, must be funny in the rich mans world")
+		// contacts := network.Kademlia.LookupContact(msg.QueryContact)
 
 		// recover and return the data
-		data := network.Kademlia.Data[msg.Hash]
+		data, contacts, _ := network.Kademlia.LookupData(msg.Hash)
+
 		ack := Message{
-			RPCtype: "FIND_DATA_ACK",
-			Sender:  network.Kademlia.RoutingTable.me,
-			Data:    data,
+			RPCtype:  "FIND_DATA_ACK",
+			Sender:   network.Kademlia.RoutingTable.me,
+			Data:     data,
+			Contacts: contacts,
 		}
 		network.sendMessage(msg.Sender.Address, ack)
 
 	case "FIND_DATA_ACK":
 		// add sender to my bucket
 		network.updateBucket(msg.Sender)
-		/*
-			print data
-			print nodeID of node containing data
-		*/
-		fmt.Println("I found the data you were looking for:", msg.Data)
-		fmt.Println("in the node:                          ", msg.Sender.ID)
+		if msg.Data != nil {
+			fmt.Println("I found the data you were looking for:", msg.Data)
+			fmt.Println("in the node:                          ", msg.Sender.ID)
+		} else {
+			fmt.Println("no data exist at provided hash :(")
+		}
 
 	case "STORE":
 		// add sender to my bucket
@@ -195,7 +192,6 @@ func (network *Network) handlePacket(msg Message) {
 		network.updateBucket(msg.Sender)
 		fmt.Println("the stored data has been stored with the hash: ", msg.Hash)
 
-		fmt.Println(msg.Hash)
 	default:
 		fmt.Println("oh no unknown message type recieved")
 	}
@@ -248,9 +244,9 @@ func (network *Network) SendFindContactMessage(contact *Contact) {
 		QueryContact: contact,
 	}
 
-	closestNodes := network.FindClosesetNodes(contact.ID)
+	closestNodes := network.FindClosestNodes(msg)
 
-	network.sendMessage(closestNodes[0].Address, msg)
+	network.sendMessage(closestNodes.contacts[0].Address, msg)
 
 }
 
@@ -262,15 +258,13 @@ This is a primitive operation, not an iterative one.
 */
 func (network *Network) SendFindDataMessage(hash string) { // Emma needs this to print the data and the node containing the data
 	msg := Message{
-		RPCtype: "FIND_CONTACT",
+		RPCtype: "FIND_DATA",
 		Sender:  network.Kademlia.RoutingTable.me,
 		Hash:    hash,
 	}
 
-	// how do i find which node to send the message to?
-	// kademlia stuff i guess
-
-	network.sendMessage("contact.Address", msg)
+	target := network.FindClosestNodes(msg).contacts[0]
+	network.sendMessage(target.Address, msg)
 }
 
 /*
@@ -280,23 +274,141 @@ and make it available for later retrieval by that key.
 This is a primitive operation, not an iterative one.
 */
 func (network *Network) SendStoreMessage(data []byte) { // prints hash when handling response
-	msg := Message{
-		RPCtype: "STORE",
-		Sender:  network.Kademlia.RoutingTable.me,
-		Data:    data,
-	}
+	// msg := Message{
+	// 	RPCtype: "STORE",
+	// 	Sender:  network.Kademlia.RoutingTable.me,
+	// 	Data:    data,
+	// }
 
 	// find which node we want to store the data in
 	// we do this by hashing the data and finding the node closest to the value of the hash?
 	hash := network.Kademlia.GetHash(data)
-	hashID := network.Kademlia.GetHashID(hash)
-	closestNodes := network.FindClosesetNodes(&hashID) // list
+
+	msg := Message{
+		RPCtype: "STORE",
+		Sender:  network.Kademlia.RoutingTable.me,
+		Data:    data,
+		Hash:    hash,
+	}
+	closestNodes := network.FindClosestNodes(msg) // list
 
 	// and then tell closest node to actually store it
-	network.sendMessage(closestNodes[0].Address, msg)
+	network.sendMessage(closestNodes.contacts[0].Address, msg)
 }
 
-func (network *Network) FindClosesetNodes(hashID *KademliaID) []Contact {
-	//TODO
-	return nil
+func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
+	var id KademliaID
+	switch msg.RPCtype {
+	case "FIND_VALUE":
+		id = network.Kademlia.GetHashID(msg.Hash)
+	case "FIND_CONTACT":
+		id = *msg.Sender.ID
+	}
+
+	//	The search begins by selecting alpha contacts from the non-empty k-bucket closest to the bucket appropriate to the key being searched on.
+	//	If there are fewer than alpha contacts in that bucket, contacts are selected from other buckets.
+	//	The contact closest to the target key, closestNode, is noted.
+	alphaClosest := network.Kademlia.AlphaClosest(&id, network.Alpha)
+	closestNode := alphaClosest.contacts[0]
+	nodesContacted := ContactCandidates{make([]Contact, 0)}
+
+	//	The first alpha contacts selected are used to create a shortlist for the search.
+	shortList := ContactCandidates{alphaClosest.contacts}
+	shortList.Append(alphaClosest.contacts)
+	nodesContacted.Append(alphaClosest.contacts)
+
+	//	The node then sends parallel, asynchronous FIND_* RPCs to the alpha contacts in the shortlist.
+	//	Each contact, if it is live, should normally return k triples.
+	//	If any of the alpha contacts fails to reply, it is removed from the shortlist, at least temporarily.
+
+	messageList := make([]Message, network.Alpha)
+	for _, x := range alphaClosest.contacts {
+		go func() {
+			network.sendMessage(x.Address, msg)
+		}()
+		nodesContacted.AddOne(x)
+
+		select {
+		case res := <-network.Channel:
+			messageList = append(messageList, res)
+
+		case <-time.After(3 * time.Second):
+			shortList.Remove(x)
+		}
+	}
+
+	//  The node then fills the shortlist with contacts from the replies received.
+	//  These are those closest to the target.
+	for _, message := range messageList {
+		for _, x := range message.Contacts.contacts {
+			if !nodesContacted.Contains(x) && !shortList.Contains(x) {
+				shortList.AddOne(x)
+			}
+		}
+	}
+	shortList.Sort()
+	closestNode = shortList.contacts[0]
+
+	//  From the shortlist it selects another alpha contacts.
+	//  The only condition for this selection is that they have not already been contacted.
+	//  Once again a FIND_* RPC is sent to each in parallel.
+	for {
+		for i := 0; i < network.Alpha; i++ {
+			for _, x := range shortList.contacts {
+				if !nodesContacted.Contains(x) {
+					go func() {
+						network.sendMessage(x.Address, msg)
+					}()
+
+					nodesContacted.AddOne(x)
+					select {
+					case res := <-network.Channel:
+						messageList = append(messageList, res)
+
+					case <-time.After(3 * time.Second):
+						shortList.Remove(x)
+					}
+					break
+				}
+			}
+		}
+		for _, message := range messageList {
+			for _, x := range message.Contacts.contacts {
+				if !nodesContacted.Contains(x) && !shortList.Contains(x) {
+					shortList.AddOne(x)
+				}
+			}
+		}
+		// Each such parallel search updates closestNode, the closest node seen so far.
+		// The sequence of parallel searches is continued until either no node in the sets returned
+		// is closer than the closest node already seen or the initiating node has accumulated k probed
+		// and known to be active contacts.
+		//
+		// If a cycle doesn't find a closer node, if closestNode is unchanged,
+		// then the initiating node sends a FIND_* RPC to each of the k closest nodes that it has not already queried.
+		shortList.Sort()
+		if closestNode == shortList.contacts[0] {
+			break
+		} else {
+			closestNode = shortList.contacts[0]
+		}
+
+		kProbed := false
+		count := 0
+		if shortList.Len() >= network.Kademlia.K {
+			for _, x := range shortList.contacts {
+				if nodesContacted.Contains(x) {
+					count++
+				}
+				if count == network.Kademlia.K {
+					kProbed = true
+				}
+			}
+		}
+		if kProbed {
+			break
+		}
+	}
+
+	return shortList
 }
