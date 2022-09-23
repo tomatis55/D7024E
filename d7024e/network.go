@@ -268,7 +268,7 @@ func (network *Network) SendFindContactMessage(contact *Contact) {
 		QueryContact: contact,
 	}
 
-	closestNodes := network.FindClosestNodes(msg)
+	network.FindClosestNodes(msg)
 
 }
 
