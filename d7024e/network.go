@@ -66,6 +66,11 @@ func (network *Network) Listen(ip string, port int) {
 		var msg Message
 		json.Unmarshal(buf[:rlen], &msg)
 
+		// if we are to terminate our node we want to stop listening
+		if msg.RPCtype == "TERMINATE_NODE" {
+			return
+		}
+
 		go network.handlePacket(msg)
 	}
 }
@@ -149,7 +154,6 @@ func (network *Network) handlePacket(msg Message) {
 		*/
 		// add sender to my bucket
 		network.updateBucket(msg.Sender)
-		fmt.Println("find me, find me, find me a contact after midnight")
 		contacts := network.Kademlia.LookupContact(msg.QueryContact)
 
 		fmt.Println("Contacts from FIND_CONTACT:", contacts)
@@ -161,17 +165,17 @@ func (network *Network) handlePacket(msg Message) {
 			Contacts: contacts,
 		}
 		network.sendMessage(msg.Sender.Address, ack)
-		fmt.Println("sent a find_contact_ack message to ", msg.Sender.Address)
 
 	case "FIND_CONTACT_ACK":
+		fmt.Println("GOT FIND_CONTACT_ACK")
 		/*
 			TODO:
 		*/
 		// add sender to my bucket
-		fmt.Println("In find_contact_ack")
+		//fmt.Println("In find_contact_ack")
 		network.updateBucket(msg.Sender)
 		network.Channel <- msg
-		fmt.Println("contact:", msg.Sender.ID, "found, buckets updated")
+		//fmt.Println("contact:", msg.Sender.ID, "found, buckets updated")
 
 	case "FIND_DATA":
 		/*
@@ -180,7 +184,7 @@ func (network *Network) handlePacket(msg Message) {
 		*/
 		// add sender to my bucket
 		network.updateBucket(msg.Sender)
-		fmt.Println("data, data, data, must be funny in the rich mans world")
+		fmt.Println("GOT FIND_DATA MESSAGE")
 		// contacts := network.Kademlia.LookupContact(msg.QueryContact)
 
 		// recover and return the data
@@ -208,7 +212,7 @@ func (network *Network) handlePacket(msg Message) {
 	case "STORE":
 		// add sender to my bucket
 		network.updateBucket(msg.Sender)
-		fmt.Println("the winner stores it all, the loser has to fall")
+		fmt.Println("GOT STORE MESSAGE")
 
 		hash := network.Kademlia.Store(msg.Data)
 

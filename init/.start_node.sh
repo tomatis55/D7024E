@@ -13,11 +13,11 @@ then
     #echo "in double if"
     #echo ${CONN_TO_IP}
     #echo ${CONN_TO_ID}
-    ./main.go ${IP} ${CONN_TO_ID} ${CONN_TO_IP}
+    ./init ${IP} ${CONN_TO_ID} ${CONN_TO_IP}
     fi
 else
     #echo "in else"
-    ./main.go ${IP}
+    ./init ${IP}
 fi
 
 echo "Exited node"
