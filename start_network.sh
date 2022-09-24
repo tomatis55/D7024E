@@ -5,7 +5,8 @@ cd /home/emacar-8/gocode/src/init
 go build -o main  
 chmod +x main
 
-source join.sh
+# source /home/emacar-8/join.sh
+echo "source /home/join.sh" >> ~/.bashrc
 
 # to build or not to build?
 cd
@@ -26,15 +27,8 @@ sudo docker container run -it --ip 172.20.0.2 --net net --name "c0" kadlab
 #     sudo docker container run -it -d --net net --name "c${i}" kadlab
 # done
 
-sudo docker container run -it --net net --name "c1" kadlab
-
 # sudo docker container run -it --env CONN_TO_IP=172.20.0.3 --env CONN_TO_ID=0000000000000000000000000000000000000001 --net net --name "c97" kadlab
 
 # Guide:
-# Run ./.start_network.sh in server
-# In the container terminal, run ./.start_node.sh
-
-# In a new server terminal, run the following:
-# sudo docker container run -it -d --net net --name "c1" kadlab
-# sudo docker exec -it c1 /bin/bash
-# In the node terminal, run ./.start_node.sh
+# Run ./start_network.sh in server
+# sudo docker container run -it --net net --name "c1" kadlab
