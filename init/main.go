@@ -11,7 +11,6 @@ import (
 )
 
 func init(){
-	fmt.Println("Hello world")
 	arg := os.Args
 
 	idSuperNode := "0000000000000000000000000000000000000001"
@@ -44,10 +43,11 @@ func init(){
 
 func main() {
 
+	r := bufio.NewReader(os.Stdin)
+
 	loop := true
 	for loop{
-		r := bufio.NewReader(os.Stdin)
-		
+
 		input, _, _ := r.ReadLine()
 
 		inputSlices := strings.Split(string(input), " ")
@@ -65,6 +65,9 @@ func main() {
 		
 		case inputSlices[0] == "ping" && len(inputSlices) == 2:
 			Ping(inputSlices[1])
+
+		case inputSlices[0] == "info":
+			Info()
 
 		default:
 			fmt.Println("Not a valid command")

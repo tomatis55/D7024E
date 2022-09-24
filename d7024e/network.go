@@ -37,8 +37,6 @@ func (network *Network) Listen(ip string, port int) {
 	}
 	defer conn.Close()
 
-	fmt.Println("listening to: ", ip, ":", port)
-
 	// listen to our connection, relaying all recieved packets to a handlePacket() go routine for proper handling
 	buf := make([]byte, 1024)
 	for {
@@ -277,13 +275,18 @@ Otherwise the RPC is equivalent to a FIND_NODE and a set of k triples is returne
 This is a primitive operation, not an iterative one.
 */
 func (network *Network) SendFindDataMessage(hash string) { // Emma needs this to print the data and the node containing the data
-	msg := Message{
-		RPCtype: "FIND_DATA",
-		Sender:  network.Kademlia.RoutingTable.me,
-		Hash:    hash,
+	data, _, ok := network.Kademlia.LookupData(hash)
+	if ok {
+		fmt.Println("I found the data you were looking for:", string(data))
+		fmt.Println("in the node:                          ", network.Kademlia.RoutingTable.me.ID)
+	} else {
+		msg := Message{
+			RPCtype: "FIND_DATA",
+			Sender:  network.Kademlia.RoutingTable.me,
+			Hash:    hash,
+		}
+		network.FindClosestNodes(msg)
 	}
-
-	network.FindClosestNodes(msg)
 }
 
 /*
@@ -315,6 +318,12 @@ func (network *Network) SendStoreMessage(data []byte) { // prints hash when hand
 }
 
 func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
+
+	// Clear the channel buffer
+	for len(network.Channel) > 0 {
+		<-network.Channel
+	}
+	
 	var id KademliaID
 	switch msg.RPCtype {
 	case "FIND_VALUE":
