@@ -65,6 +65,9 @@ func main() {
 		case inputSlices[0] == "ping" && len(inputSlices) == 2:
 			Ping(inputSlices[1])
 
+		case inputSlices[0] == "info":
+			Info()
+
 		default:
 			fmt.Println("Not a valid command")
 		}

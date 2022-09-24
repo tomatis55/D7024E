@@ -130,7 +130,7 @@ func (network *Network) handlePacket(msg Message) {
 
 	switch msg.RPCtype {
 	case "PING":
-		fmt.Println("you can ping, you can jive, having the time of your life")
+		fmt.Println("GOT PING")
 
 		// add sender to my bucket
 		network.updateBucket(msg.Sender)
@@ -145,7 +145,7 @@ func (network *Network) handlePacket(msg Message) {
 	case "PING_ACK":
 		// add sender to my bucket
 		network.updateBucket(msg.Sender)
-		fmt.Println(string("ping PONG, i hear you!"))
+		fmt.Println(string("GOT PONG"))
 
 	case "FIND_CONTACT":
 		/*
@@ -230,7 +230,7 @@ func (network *Network) handlePacket(msg Message) {
 		fmt.Println("the stored data has been stored with the hash: ", msg.Hash)
 
 	default:
-		fmt.Println("oh no unknown message type recieved")
+		fmt.Println("Unkown message type recieved")
 	}
 
 }
@@ -249,6 +249,9 @@ func (network *Network) sendMessage(addr string, msg Message) {
 		fmt.Println("Marshal error:", err)
 	}
 	_, err = conn.Write(marshalled_msg)
+
+	fmt.Println("SENDING ", msg.RPCtype, " MESSAGE")
+
 	if err != nil {
 		fmt.Println("Write error:", err)
 	}
@@ -326,13 +329,22 @@ func (network *Network) SendStoreMessage(data []byte) { // prints hash when hand
 	// we do this by hashing the data and finding the node closest to the value of the hash?
 	hash := network.Kademlia.GetHash(data)
 
-	msg := Message{
+	findDataMessage := Message{
+		RPCtype: "FIND_DATA",
+		Sender:  network.Kademlia.RoutingTable.me,
+		Data:    data,
+		Hash:    hash,
+	}
+	contacts := network.FindClosestNodes(findDataMessage) // list
+
+	storeMessage := Message{
 		RPCtype: "STORE",
 		Sender:  network.Kademlia.RoutingTable.me,
 		Data:    data,
 		Hash:    hash,
 	}
-	network.FindClosestNodes(msg) // list
+
+	network.sendMessage(contacts.contacts[0].Address, storeMessage)
 
 	// and then tell closest node to actually store it
 }
@@ -346,7 +358,7 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 
 	var id KademliaID
 	switch msg.RPCtype {
-	case "FIND_VALUE":
+	case "FIND_DATA":
 		id = network.Kademlia.GetHashID(msg.Hash)
 	case "FIND_CONTACT":
 		id = *msg.Sender.ID
@@ -455,6 +467,8 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 		}
 
 	}
+
+	shortList.Sort()
 
 	return shortList
 

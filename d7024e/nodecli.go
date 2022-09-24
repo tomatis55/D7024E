@@ -50,3 +50,10 @@ func Ping(ip string) {
 		time.Sleep(3 * time.Second)
 	}
 }
+
+func Info() {
+	ip := NodeNetwork.Kademlia.RoutingTable.me.Address
+	id := NodeNetwork.Kademlia.RoutingTable.me.ID
+	fmt.Println("Node IP: ", ip)
+	fmt.Println("Node ID: ", id)
+}
