@@ -33,4 +33,10 @@ func TestRoutingTable(t *testing.T) {
 		}
 
 	}
+
+	contacts = rt.FindClosestContacts(NewKademliaID("FFFFFFFF00000000000000000000000000000000"), 3)
+	if contacts[0].distance.String() != "0000000000000000000000000000000000000000" {
+		t.Error("got ", contacts[0].distance.String(), "want ", "0000000000000000000000000000000000000000")
+	}
+
 }

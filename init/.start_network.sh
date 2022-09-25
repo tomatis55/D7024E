@@ -23,7 +23,7 @@ sudo docker network create net --subnet=172.20.0.0/16     # gateway ip = 172.20.
 sudo docker container run -it -d --ip 172.20.0.2 --net net --name "c0" kadlab      # -d
 
 # loop to start nodes 
-for i in {1..3}
+for i in {1..2}
 do
     echo "Creating node c$i"
     sudo docker container run -it -d --net net --name "c${i}" kadlab
