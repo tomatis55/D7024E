@@ -26,9 +26,10 @@ func InitalizeNode(ip string, idSuperNode string, ipSuperNode string, port strin
 	NodeNetwork = Network{Kademlia{NewRoutingTable(me), k, make(map[string][]byte)}, alpha, make(chan Message, alpha)}
 
 	go NodeNetwork.Listen(ip, 80)
-
-	NodeNetwork.Kademlia.RoutingTable.AddContact(NewContact(NewKademliaID(idSuperNode), ipSuperNode+port))
+	superNode := NewContact(NewKademliaID(idSuperNode), ipSuperNode+port)
+	superNode.CalcDistance(me.ID)
+	NodeNetwork.Kademlia.RoutingTable.AddContact(superNode)
+	
 	NodeNetwork.SendFindContactMessage(&me)
 
 }
-

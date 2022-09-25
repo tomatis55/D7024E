@@ -19,8 +19,7 @@ type Message struct {
 	QueryContact *Contact
 	Hash         string
 	Data         []byte
-	Contacts     ContactCandidates
-	// more?
+	Contacts     []Contact
 }
 
 // will listen for udp-packets on the provided ip and port
@@ -59,6 +58,14 @@ func (network *Network) Listen(ip string, port int) {
 }
 
 func (network *Network) updateBucket(sender Contact) {
+
+	if network.Kademlia.RoutingTable.me.ID.Equals(sender.ID) {
+		return
+	}
+
+	fmt.Println("contact:", sender.ID, "found, buckets updated")
+
+	sender.CalcDistance(network.Kademlia.RoutingTable.me.ID)
 
 	bucket := *network.Kademlia.RoutingTable.buckets[network.Kademlia.RoutingTable.getBucketIndex(network.Kademlia.RoutingTable.me.ID)]
 
@@ -101,6 +108,9 @@ func (network *Network) updateBucket(sender Contact) {
 			// }
 		}
 	}
+
+	contacts := network.Kademlia.GetAllContacts()
+	fmt.Println("All contacts in this node after updating buckets:", contacts.contacts)
 }
 
 /*
@@ -143,19 +153,26 @@ func (network *Network) handlePacket(msg Message) {
 		ack := Message{
 			RPCtype:  "FIND_CONTACT_ACK",
 			Sender:   network.Kademlia.RoutingTable.me,
-			Contacts: contacts,
+			Contacts: contacts.contacts,
 		}
 		network.sendMessage(msg.Sender.Address, ack)
-		fmt.Println("sent a find_contact_ack message to ", msg.Sender.Address)
 
 	case "FIND_CONTACT_ACK":
 		/*
 			TODO:
 		*/
 		// add sender to my bucket
+		for i, contact := range msg.Contacts {
+            // fmt.Println("ID:", network.Kademlia.RoutingTable.me.ID)
+            contact.CalcDistance(network.Kademlia.RoutingTable.me.ID)
+            msg.Contacts[i] = contact
+            network.updateBucket(contact)
+            // fmt.Println("contact:", contact.ID, "found, buckets updated")
+        }
+
 		network.updateBucket(msg.Sender)
 		network.Channel <- msg
-		fmt.Println("contact:", msg.Sender.ID, "found, buckets updated")
+		
 
 	case "FIND_DATA":
 		/*
@@ -175,8 +192,9 @@ func (network *Network) handlePacket(msg Message) {
 			RPCtype:  "FIND_DATA_ACK",
 			Sender:   network.Kademlia.RoutingTable.me,
 			Data:     data,
-			Contacts: contacts,
+			Contacts: contacts.contacts,
 		}
+		
 		network.sendMessage(msg.Sender.Address, ack)
 
 	case "FIND_DATA_ACK":
@@ -263,8 +281,8 @@ func (network *Network) SendFindContactMessage(contact *Contact) {
 		QueryContact: contact,
 	}
 
-	_ = network.FindClosestNodes(msg)
-	// network.updateBucket()
+	network.FindClosestNodes(msg)
+
 
 }
 
@@ -341,7 +359,7 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 
 	//	The first alpha contacts selected are used to create a shortlist for the search.
 	shortList := ContactCandidates{alphaClosest.contacts}
-	shortList.Append(alphaClosest.contacts)
+	// shortList.Append(alphaClosest.contacts)
 	nodesContacted.Append(alphaClosest.contacts)
 
 
@@ -351,6 +369,7 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 
 	messageList := make([]Message, network.Alpha)
 	for _, x := range alphaClosest.contacts {
+		fmt.Println("1Sending message to: ", x.Address)
 		go func() {
 			network.sendMessage(x.Address, msg)
 		}()
@@ -369,7 +388,7 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 	//  The node then fills the shortlist with contacts from the replies received.
 	//  These are those closest to the target.
 	for _, message := range messageList {
-		for _, x := range message.Contacts.contacts {
+		for _, x := range message.Contacts {
 			if !nodesContacted.Contains(x) && !shortList.Contains(x) {
 				shortList.AddOne(x)
 			}
@@ -382,39 +401,7 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 	//  The only condition for this selection is that they have not already been contacted.
 	//  Once again a FIND_* RPC is sent to each in parallel.
 	for {
-		for i := 0; i < network.Alpha; i++ {
-			for _, x := range shortList.contacts {
-				if !nodesContacted.Contains(x) {
-					go func() {
-						network.sendMessage(x.Address, msg)
-					}()
 
-					nodesContacted.AddOne(x)
-					select {
-					case res := <-network.Channel:
-						messageList = append(messageList, res)
-
-					case <-time.After(3 * time.Second):
-						shortList.Remove(x)
-					}
-					break
-				}
-			}
-		}
-		for _, message := range messageList {
-			for _, x := range message.Contacts.contacts {
-				if !nodesContacted.Contains(x) && !shortList.Contains(x) {
-					shortList.AddOne(x)
-				}
-			}
-		}
-		// Each such parallel search updates closestNode, the closest node seen so far.
-		// The sequence of parallel searches is continued until either no node in the sets returned
-		// is closer than the closest node already seen or the initiating node has accumulated k probed
-		// and known to be active contacts.
-		//
-		// If a cycle doesn't find a closer node, if closestNode is unchanged,
-		// then the initiating node sends a FIND_* RPC to each of the k closest nodes that it has not already queried.
 		shortList.Sort()
 		if closestNode == shortList.contacts[0] {
 			break
@@ -437,7 +424,43 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 		if kProbed {
 			break
 		}
+
+
+		for i := 0; i < network.Alpha; i++ {
+			for _, x := range shortList.contacts {
+				if !nodesContacted.Contains(x) {
+					fmt.Println("2Sending message to: ", x.Address)
+					go func() {
+						network.sendMessage(x.Address, msg)
+					}()
+
+					nodesContacted.AddOne(x)
+					select {
+					case res := <-network.Channel:
+						messageList = append(messageList, res)
+
+					case <-time.After(3 * time.Second):
+						shortList.Remove(x)
+					}
+					break
+				}
+			}
+		}
+		for _, message := range messageList {
+			for _, x := range message.Contacts {
+				if !nodesContacted.Contains(x) && !shortList.Contains(x) {
+					shortList.AddOne(x)
+				}
+			}
+		}
+		// Each such parallel search updates closestNode, the closest node seen so far.
+		// The sequence of parallel searches is continued until either no node in the sets returned
+		// is closer than the closest node already seen or the initiating node has accumulated k probed
+		// and known to be active contacts.
+		//
+		// If a cycle doesn't find a closer node, if closestNode is unchanged,
+		// then the initiating node sends a FIND_* RPC to each of the k closest nodes that it has not already queried.
+		
 	}
-	fmt.Println(shortList)
 	return shortList
 }
