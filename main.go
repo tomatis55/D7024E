@@ -1,62 +1,96 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 	"time"
 )
 
-func main() {
-	fmt.Println("Hello world")
+func init() {
 	arg := os.Args
 
-	idSuperNode := "0000000000000000000000000000000000000000"
+	idSuperNode := "0000000000000000000000000000000000000001"
 	ipSuperNode := "172.20.0.2"
 	port := ":80"
 	ip := arg[1]
+	ipAndPort := ip + port
+	fmt.Println(ip)
 
-	fmt.Println("my ip is: ", ip)
-
-	network := &Network{}
-	_ = &Contact{}
-
-	// Initialize the super node
 	if ip == ipSuperNode {
-		me := NewContact(NewKademliaID(idSuperNode), ipSuperNode+port)
-		network = &Network{Kademlia{NewRoutingTable(me), 4, make(map[string][]byte)}, 3}
+		InitalizeSuperNode(idSuperNode, ipAndPort)
 
-		network.Listen(ipSuperNode, 80) // run on c0/super node and run the code below to test ping in another container
+		// contact := NewContact(NewKademliaID("0000000000000000000000000000000000000001"), "172.20.0.3:80")
+		// Pinger(contact)
 
-		// Initialize the node and add the super node as a contact, then send a msg to let other nodes know of its existance
+		// }else if (ip == "172.20.0.3"){
+		// 	InitalizeSuperNode("0000000000000000000000000000000000000001", "172.20.0.3:80")
+
 	} else {
-		me := NewContact(NewRandomKademliaID(), ip+port)
-		network = &Network{Kademlia{NewRoutingTable(me), 4, make(map[string][]byte)}, 3}
-		// add supernode as contact
-		network.Kademlia.RoutingTable.AddContact(NewContact(NewKademliaID(idSuperNode), ipSuperNode+port))
-		network.SendFindContactMessage(&me)
-
-		contact := NewContact(NewKademliaID(idSuperNode), ipSuperNode+port)
-
-		// test function to see if the super node is added as a contact
-		retContact := network.Kademlia.LookupContact(&contact)
-		if retContact.contacts[0].Address == contact.Address {
-			fmt.Println("Jag existerar!")
-		} else {
-			fmt.Println(":(((((")
+		if len(os.Args) > 2 { // if another super node was specified
+			InitalizeNode(ipAndPort, arg[2], arg[3], port) // arg[2] = id of node to connect to, arg[3] = ip of node to connect to
+		} else { // if no node was specified, use the standard super node
+			InitalizeNode(ipAndPort, idSuperNode, ipSuperNode, port)
 		}
+		//contact := NewContact(NewKademliaID(idSuperNode), ipSuperNode+port)
+		//Pinger(contact)
 
-		go network.Listen(ip, 80)
-		Pinger(*network, contact)
 	}
+}
+
+func main() {
+
+	r := bufio.NewReader(os.Stdin)
+
+	loop := true
+	for loop {
+
+		input, _, _ := r.ReadLine()
+
+		inputSlices := strings.Split(string(input), " ")
+
+		switch {
+		case inputSlices[0] == "get" && len(inputSlices) == 2:
+			Get(inputSlices[1])
+
+		case inputSlices[0] == "put" && len(inputSlices) == 2:
+			Put(inputSlices[1])
+
+		case inputSlices[0] == "exit":
+			Exit()
+			loop = false
+
+		case inputSlices[0] == "ping" && len(inputSlices) == 2:
+			Ping(inputSlices[1])
+
+		case inputSlices[0] == "info":
+			Info()
+
+		default:
+			fmt.Println("Not a valid command")
+		}
+	}
+
+	exec.Command("kill -s SIGTERM 1")
 
 }
 
-func Pinger(n Network, me Contact) {
+func Pinger(contact Contact) {
 
 	for i := 0; i < 3; i++ {
 		fmt.Println("Sending a ping ... NOW!")
-		n.SendPingMessage(&me)
-		time.Sleep(3 * time.Second)
+		NodeNetwork.SendPingMessage(&contact)
+		time.Sleep(30 * time.Second)
 	}
 
 }
+
+// test function to see if the super node is added as a contact
+// retContact := network.Kademlia.LookupContact(&contact)
+// if retContact[0].Address == contact.Address {
+// 	fmt.Println("Jag existerar!")
+// } else {
+// 	fmt.Println(":(((((")
+// }

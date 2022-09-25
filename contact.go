@@ -26,6 +26,13 @@ func (contact *Contact) CalcDistance(target *KademliaID) {
 
 // Less returns true if contact.distance < otherContact.distance
 func (contact *Contact) Less(otherContact *Contact) bool {
+
+	// fmt.Println("in less")
+	// fmt.Println("in less: contact", contact)
+	// fmt.Println("in less: contact.distance", contact.distance)
+	// fmt.Println("in less: otherContact", otherContact)
+	// fmt.Println("in less: otherContact.distance", otherContact.distance)
+
 	return contact.distance.Less(otherContact.distance)
 }
 
@@ -55,9 +62,14 @@ func (candidates *ContactCandidates) Contains(contact Contact) bool {
 }
 
 func (candidates *ContactCandidates) Remove(contact Contact) {
+	fmt.Println("Length of contactCandidates:", len(candidates.contacts))
 	for i, x := range candidates.contacts {
+		fmt.Println("current contact:", x.Address)
 		if x.ID.Equals(contact.ID) {
-			candidates.contacts = append(candidates.contacts[:i], candidates.contacts[i+1:]...)
+			copy(candidates.contacts[i:], candidates.contacts[i+1:])               // Shift a[i+1:] left one index.
+			candidates.contacts[len(candidates.contacts)-1] = Contact{}            // Erase last element (write zero value).
+			candidates.contacts = candidates.contacts[:len(candidates.contacts)-1] // Truncate slice.
+			return
 		}
 	}
 }
