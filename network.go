@@ -415,6 +415,9 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 
 	messageList := make([]Message, network.Alpha)
 	for _, x := range alphaClosest.contacts {
+		for len(network.Channel) > 0 {
+			<-network.Channel
+		}
 		go func() {
 			network.sendMessage(x.Address, msg)
 		}()
@@ -456,6 +459,9 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 		for i := 0; i < network.Alpha; i++ {
 			for _, x := range shortList.contacts {
 				if !nodesContacted.Contains(x) {
+					for len(network.Channel) > 0 {
+						<-network.Channel
+					}
 					go func() {
 						network.sendMessage(x.Address, msg)
 					}()
