@@ -80,3 +80,13 @@ func (kademlia *Kademlia) AlphaClosest(id *KademliaID, alpha int) ContactCandida
 	contacts.Sort()
 	return contacts
 }
+
+func (kademlia *Kademlia) GetAllContacts() ContactCandidates {
+	contacts := ContactCandidates{}
+	for _, bucket := range kademlia.RoutingTable.buckets {
+		for e := bucket.list.Front(); e != nil; e = e.Next() {
+			contacts.AddOne(e.Value.(Contact))
+		}
+	}
+	return contacts
+}
