@@ -49,7 +49,7 @@ func main() {
 
 		input, _, _ := r.ReadLine()
 
-		inputSlices := strings.Split(string(input), " ")
+		inputSlices := strings.SplitN(string(input), " ", 2)
 
 		switch {
 		case inputSlices[0] == "get" && len(inputSlices) == 2:
