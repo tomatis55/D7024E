@@ -68,6 +68,9 @@ func main() {
 		case inputSlices[0] == "info":
 			Info()
 
+		case inputSlices[0] == "superinfo":
+			SuperInfo()
+
 		default:
 			fmt.Println("Not a valid command")
 		}

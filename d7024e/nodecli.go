@@ -59,5 +59,12 @@ func Info() {
 	id := NodeNetwork.Kademlia.RoutingTable.me.ID
 	fmt.Println("Node IP: ", ip)
 	fmt.Println("Node ID: ", id)
-	fmt.Println("All contacts: ", NodeNetwork.Kademlia.GetAllContacts())
+}
+
+func SuperInfo() {
+	ip := NodeNetwork.Kademlia.RoutingTable.me.Address
+	id := NodeNetwork.Kademlia.RoutingTable.me.ID
+	fmt.Println("Node IP: ", ip)
+	fmt.Println("Node ID: ", id)
+	fmt.Println("All known contacts: ", NodeNetwork.Kademlia.GetAllContacts())
 }
