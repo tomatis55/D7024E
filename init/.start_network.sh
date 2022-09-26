@@ -8,7 +8,7 @@ go build .
 chmod +x init
 
 # source /home/emacar-8/join.sh
-echo "source /home/romerm-8/gocode/src/init/join.sh" >> ~/.bashrc
+#echo "source /home/romerm-8/gocode/src/init/join.sh" >> ~/.bashrc
 
 # to build or not to build?
 cd
@@ -23,11 +23,11 @@ sudo docker network create net --subnet=172.20.0.0/16     # gateway ip = 172.20.
 sudo docker container run -it -d --ip 172.20.0.2 --net net --name "c0" kadlab      # -d
 
 # loop to start nodes 
-for i in {1..2}
-do
-    echo "Creating node c$i"
-    sudo docker container run -it -d --net net --name "c${i}" kadlab
-done
+# for i in {1..49}
+# do
+#     echo "Creating node c$i"
+#     sudo docker container run -it -d --net net --name "c${i}" kadlab
+# done
 
 
 # Guide:

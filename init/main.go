@@ -18,16 +18,9 @@ func init() {
 	port := ":80"
 	ip := arg[1]
 	ipAndPort := ip + port
-	fmt.Println(ip)
 
 	if ip == ipSuperNode {
 		InitalizeSuperNode(idSuperNode, ipAndPort)
-
-		// contact := NewContact(NewKademliaID("0000000000000000000000000000000000000001"), "172.20.0.3:80")
-		// Pinger(contact)
-
-		// }else if (ip == "172.20.0.3"){
-		// 	InitalizeSuperNode("0000000000000000000000000000000000000001", "172.20.0.3:80")
 
 	} else {
 		if len(os.Args) > 2 { // if another super node was specified
@@ -35,8 +28,6 @@ func init() {
 		} else { // if no node was specified, use the standard super node
 			InitalizeNode(ipAndPort, idSuperNode, ipSuperNode, port)
 		}
-		//contact := NewContact(NewKademliaID(idSuperNode), ipSuperNode+port)
-		//Pinger(contact)
 
 	}
 }
@@ -67,6 +58,9 @@ func main() {
 
 		case inputSlices[0] == "info":
 			Info()
+
+		case inputSlices[0] == "superinfo":
+			SuperInfo()
 
 		default:
 			fmt.Println("Not a valid command")

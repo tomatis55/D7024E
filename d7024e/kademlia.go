@@ -20,13 +20,11 @@ func (kademlia *Kademlia) LookupContact(target *Contact) ContactCandidates {
 // Checks if the node can find the data, if so it will return it, otherwise it will return
 // the closest contacts to the data hash
 func (kademlia *Kademlia) LookupData(encodedHash string) ([]byte, ContactCandidates, bool) {
-
 	data, ok := kademlia.Data[encodedHash]
 	if !ok {
 		hashID := NewKademliaID(encodedHash)
 		contacts := ContactCandidates{kademlia.RoutingTable.FindClosestContacts(hashID, kademlia.K)}
 		return nil, contacts, ok
-
 	}
 	return data, ContactCandidates{}, ok
 }
@@ -59,7 +57,6 @@ func (kademlia *Kademlia) Store(data []byte) string {
 func (kademlia *Kademlia) RemoveContact(contact *Contact) {
 	bucketIndex := kademlia.RoutingTable.getBucketIndex(contact.ID)
 	bucket := kademlia.RoutingTable.buckets[bucketIndex]
-
 	bucket.Remove(contact)
 }
 
@@ -79,9 +76,7 @@ func (kademlia *Kademlia) AlphaClosest(id *KademliaID, alpha int) ContactCandida
 					return contacts
 				}
 			}
-
 		}
-
 	} else {
 		contacts := ContactCandidates{kClosestContacts[0:alpha]}
 		contacts.Sort()
@@ -89,5 +84,15 @@ func (kademlia *Kademlia) AlphaClosest(id *KademliaID, alpha int) ContactCandida
 	}
 	contacts := ContactCandidates{kClosestContacts}
 	contacts.Sort()
+	return contacts
+}
+
+func (kademlia *Kademlia) GetAllContacts() ContactCandidates {
+	contacts := ContactCandidates{}
+	for _, bucket := range kademlia.RoutingTable.buckets {
+		for e := bucket.list.Front(); e != nil; e = e.Next() {
+			contacts.AddOne(e.Value.(Contact))
+		}
+	}
 	return contacts
 }
