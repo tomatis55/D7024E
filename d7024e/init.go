@@ -30,6 +30,10 @@ func InitalizeNode(ip string, idSuperNode string, ipSuperNode string, port strin
 	superNode.CalcDistance(me.ID)
 	NodeNetwork.Kademlia.RoutingTable.AddContact(superNode)
 
-	NodeNetwork.SendFindContactMessage(&me)
+	shortList := NodeNetwork.SendFindContactMessage(&me)
+
+	if shortList.Len() == 0 {
+		NodeNetwork.SendFindContactMessage(&me)
+	}
 
 }

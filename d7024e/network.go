@@ -110,11 +110,12 @@ Handles the incoming packet, will do different things according to value of msg.
 func (network *Network) handlePacket(msg Message) {
 	fmt.Println("GOT", msg.RPCtype, " MESSAGE FROM ", msg.Sender.Address)
 
+	network.updateBucket(msg.Sender)
+
 	switch msg.RPCtype {
 	case "PING":
 
 		// add sender to my bucket
-		network.updateBucket(msg.Sender)
 
 		// send ack back
 		ack := Message{
@@ -125,7 +126,6 @@ func (network *Network) handlePacket(msg Message) {
 
 	case "PING_ACK":
 		// add sender to my bucket
-		network.updateBucket(msg.Sender)
 
 	case "FIND_CONTACT":
 		/*
@@ -133,7 +133,6 @@ func (network *Network) handlePacket(msg Message) {
 			do more kademlia stuff, what does a node do when it recieves a find_contact message?
 		*/
 		// add sender to my bucket
-		network.updateBucket(msg.Sender)
 		contacts := network.Kademlia.LookupContact(msg.QueryContact)
 
 		// send ack back
@@ -149,13 +148,11 @@ func (network *Network) handlePacket(msg Message) {
 			TODO:
 		*/
 		// add sender to my bucket
-		network.updateBucket(msg.Sender)
 
 		for i, contact := range msg.Contacts {
 			// fmt.Println("ID:", network.Kademlia.RoutingTable.me.ID)
 			contact.CalcDistance(network.Kademlia.RoutingTable.me.ID)
 			msg.Contacts[i] = contact
-			network.updateBucket(contact)
 			// fmt.Println("contact:", contact.ID, "found, buckets updated")
 		}
 
@@ -172,12 +169,10 @@ func (network *Network) handlePacket(msg Message) {
 
 		_, contacts, _ := network.Kademlia.LookupData(msg.Hash)
 
-		network.updateBucket(msg.Sender)
-
 		ack := Message{
-			RPCtype: "FIND_DATA_ACK",
-			Sender:  network.Kademlia.RoutingTable.me,
-			// Data:     data,
+			RPCtype:  "FIND_DATA_ACK",
+			Sender:   network.Kademlia.RoutingTable.me,
+			Hash:     msg.Hash,
 			Contacts: contacts.contacts,
 		}
 		network.sendMessage(msg.Sender.Address, ack)
@@ -186,9 +181,8 @@ func (network *Network) handlePacket(msg Message) {
 		// add sender to my bucket
 
 		for i, contact := range msg.Contacts {
-			contact.CalcDistance(network.Kademlia.RoutingTable.me.ID)
+			contact.CalcDistance(NewKademliaID(msg.Hash))
 			msg.Contacts[i] = contact
-			network.updateBucket(contact)
 		}
 
 		network.Channel <- msg
@@ -197,7 +191,6 @@ func (network *Network) handlePacket(msg Message) {
 
 		data, _, _ := network.Kademlia.LookupData(msg.Hash)
 
-		network.updateBucket(msg.Sender)
 		ack := Message{
 			RPCtype: "RECOVER_DATA_ACK",
 			Sender:  network.Kademlia.RoutingTable.me,
@@ -207,7 +200,6 @@ func (network *Network) handlePacket(msg Message) {
 
 	case "RECOVER_DATA_ACK":
 
-		network.updateBucket(msg.Sender)
 		if msg.Data != nil {
 			fmt.Println("I found the data you were looking for:", string(msg.Data))
 			fmt.Println("in the node:                          ", msg.Sender.ID)
@@ -217,7 +209,6 @@ func (network *Network) handlePacket(msg Message) {
 
 	case "STORE":
 		// add sender to my bucket
-		network.updateBucket(msg.Sender)
 		hash := network.Kademlia.Store(msg.Data)
 
 		ack := Message{
@@ -229,7 +220,6 @@ func (network *Network) handlePacket(msg Message) {
 
 	case "STORE_ACK":
 		// add sender to my bucket
-		network.updateBucket(msg.Sender)
 		network.Channel <- msg
 		fmt.Println("The data has been stored with the hash: ", msg.Hash)
 
@@ -279,7 +269,7 @@ func (network *Network) SendTerminateNodeMessage() {
 	network.sendMessage(network.Kademlia.RoutingTable.me.Address, msg)
 }
 
-func (network *Network) SendFindContactMessage(contact *Contact) {
+func (network *Network) SendFindContactMessage(contact *Contact) ContactCandidates {
 
 	msg := Message{
 		RPCtype:      "FIND_CONTACT", // basically ive found you as a contact pls add me to your bucket.
@@ -287,7 +277,8 @@ func (network *Network) SendFindContactMessage(contact *Contact) {
 		QueryContact: contact,
 	}
 
-	_ = network.FindClosestNodes(msg)
+	shortList := network.FindClosestNodes(msg)
+	return shortList
 }
 
 /*
@@ -369,27 +360,26 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 	//	If there are fewer than alpha contacts in that bucket, contacts are selected from other buckets.
 	//	The contact closest to the target key, closestNode, is noted.
 	alphaClosest := network.Kademlia.AlphaClosest(&id, network.Alpha)
-	// closestNode := alphaClosest.contacts[0]
-	closestNode := network.Kademlia.RoutingTable.me
+	fmt.Println("AlphaClosest: ", alphaClosest)
+	closestNode := alphaClosest.contacts[0]
 	nodesContacted := ContactCandidates{make([]Contact, 0)}
 
 	//	The first alpha contacts selected are used to create a shortlist for the search.
 	shortList := ContactCandidates{alphaClosest.contacts}
-	// shortList.Append(alphaClosest.contacts)
-	nodesContacted.Append(alphaClosest.contacts)
-
-	// fmt.Println("shortlist in start:\n", shortList)
 
 	//	The node then sends parallel, asynchronous FIND_* RPCs to the alpha contacts in the shortlist.
 	//	Each contact, if it is live, should normally return k triples.
 	//	If any of the alpha contacts fails to reply, it is removed from the shortlist, at least temporarily.
 
 	messageList := make([]Message, network.Alpha)
-	for _, x := range alphaClosest.contacts {
+	count := 0
+	for i := 0; i < alphaClosest.Len(); i++ {
+		x := alphaClosest.contacts[i-count]
 		for len(network.Channel) > 0 {
 			<-network.Channel
 		}
 		go func() {
+			fmt.Println("1Sending message to: ", x.Address)
 			network.sendMessage(x.Address, msg)
 		}()
 		nodesContacted.AddOne(x)
@@ -398,13 +388,12 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 		case res := <-network.Channel:
 			messageList = append(messageList, res)
 
-		case <-time.After(10 * time.Second):
+		case <-time.After(1 * time.Second):
 			fmt.Println(x.Address)
 			shortList.Remove(x)
+			count++
 		}
 	}
-
-	// fmt.Println("shortlist before response:\n", shortList)
 
 	//  The node then fills the shortlist with contacts from the replies received.
 	//  These are those closest to the target.
@@ -419,6 +408,11 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 	//  From the shortlist it selects another alpha contacts.
 	//  The only condition for this selection is that they have not already been contacted.
 	//  Once again a FIND_* RPC is sent to each in parallel.
+
+	if shortList.Len() == 0 {
+		return shortList
+	}
+
 	for {
 		shortList.Sort()
 		if closestNode.ID.Equals(shortList.contacts[0].ID) {
@@ -428,23 +422,26 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 		}
 
 		for i := 0; i < network.Alpha; i++ {
-			for _, x := range shortList.contacts {
+			count := 0
+			for j := 0; j < shortList.Len(); j++ {
+				x := shortList.contacts[j-count]
 				if !nodesContacted.Contains(x) {
 					for len(network.Channel) > 0 {
 						<-network.Channel
 					}
 					go func() {
+						fmt.Println("2Sending message to: ", x.Address)
 						network.sendMessage(x.Address, msg)
 					}()
 
 					nodesContacted.AddOne(x)
 					select {
 					case res := <-network.Channel:
-						// fmt.Println("res from channel:", res)
 						messageList = append(messageList, res)
 
-					case <-time.After(3 * time.Second):
+					case <-time.After(1 * time.Second):
 						shortList.Remove(x)
+						count++
 					}
 					break
 				}
