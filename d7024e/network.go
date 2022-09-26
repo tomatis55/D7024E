@@ -271,7 +271,7 @@ func (network *Network) SendTerminateNodeMessage() {
 	network.sendMessage(network.Kademlia.RoutingTable.me.Address, msg)
 }
 
-func (network *Network) SendFindContactMessage(contact *Contact) {
+func (network *Network) SendFindContactMessage(contact *Contact) ContactCandidates{
 
 	msg := Message{
 		RPCtype:      "FIND_CONTACT", // basically ive found you as a contact pls add me to your bucket.
@@ -279,7 +279,8 @@ func (network *Network) SendFindContactMessage(contact *Contact) {
 		QueryContact: contact,
 	}
 
-	_ = network.FindClosestNodes(msg)
+	shortList := network.FindClosestNodes(msg)
+	return shortList
 }
 
 /*
@@ -409,6 +410,11 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 	//  From the shortlist it selects another alpha contacts.
 	//  The only condition for this selection is that they have not already been contacted.
 	//  Once again a FIND_* RPC is sent to each in parallel.
+
+	if shortList.Len() == 0{
+		return shortList
+	}
+
 	for {
 		shortList.Sort()
 		if closestNode.ID.Equals(shortList.contacts[0].ID) {
