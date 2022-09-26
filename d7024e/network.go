@@ -152,14 +152,11 @@ func (network *Network) handlePacket(msg Message) {
 		// add sender to my bucket
 
 		for i, contact := range msg.Contacts {
-			// fmt.Println("ID:", network.Kademlia.RoutingTable.me.ID)
 			contact.CalcDistance(network.Kademlia.RoutingTable.me.ID)
 			msg.Contacts[i] = contact
 			network.updateBucket(contact)
-			// fmt.Println("contact:", contact.ID, "found, buckets updated")
 		}
 
-		// fmt.Println("\nmsg before channel:", msg, "\n")
 		network.Channel <- msg
 
 	case "FIND_DATA":
