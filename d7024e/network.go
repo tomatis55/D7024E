@@ -361,19 +361,21 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 	//	If there are fewer than alpha contacts in that bucket, contacts are selected from other buckets.
 	//	The contact closest to the target key, closestNode, is noted.
 	alphaClosest := network.Kademlia.AlphaClosest(&id, network.Alpha)
+	fmt.Println("AlphaClosest: ", alphaClosest)
 	closestNode := alphaClosest.contacts[0]
 	nodesContacted := ContactCandidates{make([]Contact, 0)}
 
 	//	The first alpha contacts selected are used to create a shortlist for the search.
 	shortList := ContactCandidates{alphaClosest.contacts}
-	nodesContacted.Append(alphaClosest.contacts)
 
 	//	The node then sends parallel, asynchronous FIND_* RPCs to the alpha contacts in the shortlist.
 	//	Each contact, if it is live, should normally return k triples.
 	//	If any of the alpha contacts fails to reply, it is removed from the shortlist, at least temporarily.
 
 	messageList := make([]Message, network.Alpha)
-	for _, x := range alphaClosest.contacts {
+	count := 0
+	for i:=0; i<alphaClosest.Len(); i++ {
+		x := alphaClosest.contacts[i-count]
 		for len(network.Channel) > 0 {
 			<-network.Channel
 		}
@@ -387,9 +389,10 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 		case res := <-network.Channel:
 			messageList = append(messageList, res)
 
-		case <-time.After(10 * time.Second):
+		case <-time.After(1 * time.Second):
 			fmt.Println(x.Address)
 			shortList.Remove(x)
+			count++
 		}
 	}
 
@@ -415,7 +418,9 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 		}
 
 		for i := 0; i < network.Alpha; i++ {
-			for _, x := range shortList.contacts {
+			count := 0
+			for j:=0; j<shortList.Len(); j++ {
+				x := shortList.contacts[j-count]
 				if !nodesContacted.Contains(x) {
 					for len(network.Channel) > 0 {
 						<-network.Channel
@@ -428,11 +433,11 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 					nodesContacted.AddOne(x)
 					select {
 					case res := <-network.Channel:
-						// fmt.Println("res from channel:", res)
 						messageList = append(messageList, res)
 
-					case <-time.After(3 * time.Second):
+					case <-time.After(1 * time.Second):
 						shortList.Remove(x)
+						count++
 					}
 					break
 				}
