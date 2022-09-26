@@ -55,9 +55,7 @@ func (candidates *ContactCandidates) Contains(contact Contact) bool {
 }
 
 func (candidates *ContactCandidates) Remove(contact Contact) {
-	fmt.Println("Length of contactCandidates:", len(candidates.contacts))
 	for i, x := range candidates.contacts {
-		fmt.Println("current contact:", x.Address)
 		if x.ID.Equals(contact.ID) {
 			copy(candidates.contacts[i:], candidates.contacts[i+1:]) // Shift a[i+1:] left one index.
 			candidates.contacts[len(candidates.contacts)-1] = Contact{}     // Erase last element (write zero value).
