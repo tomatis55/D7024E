@@ -33,14 +33,14 @@ func init() {
 }
 
 func main() {
+	r := bufio.NewReader(os.Stdin)
 
 	loop := true
 	for loop {
-		r := bufio.NewReader(os.Stdin)
 
 		input, _, _ := r.ReadLine()
 
-		inputSlices := strings.Split(string(input), " ")
+		inputSlices := strings.SplitN(string(input), " ", 2)
 
 		switch {
 		case inputSlices[0] == "get" && len(inputSlices) == 2:

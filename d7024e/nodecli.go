@@ -64,7 +64,8 @@ func SuperInfo() {
 	fmt.Println("Node IP: ", ip)
 	fmt.Println("Node ID: ", id)
 	fmt.Println("======== All known contacts ========")
-	for _, x := range NodeNetwork.Kademlia.GetAllContacts().contacts {
-		fmt.Println(x.String())
-	}
+	fmt.Println(NodeNetwork.Kademlia.GetAllContacts().contacts)
+	// for _, x := range NodeNetwork.Kademlia.GetAllContacts().contacts {
+	// 	fmt.Println(x.String())
+	// }s
 }

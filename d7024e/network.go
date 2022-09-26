@@ -65,11 +65,7 @@ func (network *Network) updateBucket(sender Contact) {
 		return
 	}
 
-	// fmt.Println("in update bucket, sender, before:", sender)
-
 	sender.CalcDistance(network.Kademlia.RoutingTable.me.ID)
-
-	// fmt.Println("in update bucket, sender, after:", sender)
 
 	bucket := *network.Kademlia.RoutingTable.buckets[network.Kademlia.RoutingTable.getBucketIndex(network.Kademlia.RoutingTable.me.ID)]
 
@@ -84,7 +80,6 @@ func (network *Network) updateBucket(sender Contact) {
 		if closestContact.contacts[0].distance.Equals(NewKademliaID("0000000000000000000000000000000000000000")) {
 			network.Kademlia.RoutingTable.AddContact(sender) // should move us to tail of bucket
 		} else {
-			// TODO TODO TODO
 			// ping buckets head to see if alive
 			go func() {
 				network.SendPingMessage(bucket.list.Front().Value.(*Contact))
@@ -150,13 +145,11 @@ func (network *Network) handlePacket(msg Message) {
 		// add sender to my bucket
 
 		for i, contact := range msg.Contacts {
-			// fmt.Println("ID:", network.Kademlia.RoutingTable.me.ID)
 			contact.CalcDistance(network.Kademlia.RoutingTable.me.ID)
 			msg.Contacts[i] = contact
-			// fmt.Println("contact:", contact.ID, "found, buckets updated")
+			network.updateBucket(contact)
 		}
 
-		// fmt.Println("\nmsg before channel:", msg, "\n")
 		network.Channel <- msg
 
 	case "FIND_DATA":
@@ -181,6 +174,7 @@ func (network *Network) handlePacket(msg Message) {
 		// add sender to my bucket
 
 		for i, contact := range msg.Contacts {
+			network.updateBucket(contact)
 			contact.CalcDistance(NewKademliaID(msg.Hash))
 			msg.Contacts[i] = contact
 		}
@@ -201,8 +195,8 @@ func (network *Network) handlePacket(msg Message) {
 	case "RECOVER_DATA_ACK":
 
 		if msg.Data != nil {
-			fmt.Println("I found the data you were looking for:", string(msg.Data))
-			fmt.Println("in the node:                          ", msg.Sender.ID)
+			fmt.Println("Found data: ", string(msg.Data))
+			fmt.Println("in the node: ", msg.Sender.ID)
 		} else {
 			fmt.Println("No data exist at provided hash")
 		}
@@ -221,7 +215,7 @@ func (network *Network) handlePacket(msg Message) {
 	case "STORE_ACK":
 		// add sender to my bucket
 		network.Channel <- msg
-		fmt.Println("The data has been stored with the hash: ", msg.Hash)
+		fmt.Println("Stored with hash: ", msg.Hash)
 
 	default:
 		fmt.Println("oh no unknown message type recieved")
@@ -360,7 +354,6 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 	//	If there are fewer than alpha contacts in that bucket, contacts are selected from other buckets.
 	//	The contact closest to the target key, closestNode, is noted.
 	alphaClosest := network.Kademlia.AlphaClosest(&id, network.Alpha)
-	fmt.Println("AlphaClosest: ", alphaClosest)
 	closestNode := alphaClosest.contacts[0]
 	nodesContacted := ContactCandidates{make([]Contact, 0)}
 
@@ -379,7 +372,6 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 			<-network.Channel
 		}
 		go func() {
-			fmt.Println("1Sending message to: ", x.Address)
 			network.sendMessage(x.Address, msg)
 		}()
 		nodesContacted.AddOne(x)
@@ -430,7 +422,6 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 						<-network.Channel
 					}
 					go func() {
-						fmt.Println("2Sending message to: ", x.Address)
 						network.sendMessage(x.Address, msg)
 					}()
 
