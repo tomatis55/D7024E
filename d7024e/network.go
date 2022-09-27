@@ -372,13 +372,15 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 	var wg sync.WaitGroup
 	messageList := make([]Message, network.Alpha)
 	count := 0
+
 	for i := 0; i < alphaClosest.Len(); i++ {
 		wg.Add(1)
 		x := alphaClosest.contacts[i-count]
-		go func() {
 
-			network.sendMessage(x.Address, msg)
-			nodesContacted.AddOne(x)
+		network.sendMessage(x.Address, msg)
+		nodesContacted.AddOne(x)
+		go func() {
+			defer wg.Done()
 
 			select {
 			case res := <-network.Channel:
@@ -433,9 +435,11 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 					for len(network.Channel) > 0 {
 						<-network.Channel
 					}
+					network.sendMessage(x.Address, msg)
+					nodesContacted.AddOne(x)
 					go func() {
-						network.sendMessage(x.Address, msg)
-						nodesContacted.AddOne(x)
+						defer wg.Done()
+
 						select {
 						case res := <-network.Channel:
 							messageList = append(messageList, res)
@@ -450,6 +454,8 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 				}
 			}
 		}
+
+		wg.Wait()
 		for _, message := range messageList {
 			for _, x := range message.Contacts {
 				if !nodesContacted.Contains(x) && !shortList.Contains(x) {
