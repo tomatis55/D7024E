@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"time"
+	"sync"
 )
 
 type Network struct {
@@ -162,7 +163,6 @@ func (network *Network) handlePacket(msg Message) {
 	case "FIND_DATA":
 		/*
 			if we recieve this message its because someone found that we probably contain the data someone is asking for
-
 			now we just want to send the data back, this should be doable by using the hash as a key in the datamap in kademlia
 		*/
 		// add sender to my bucket
@@ -283,7 +283,6 @@ func (network *Network) SendFindContactMessage(contact *Contact) ContactCandidat
 /*
 A FIND_VALUE RPC includes a B=160-bit key. If a corresponding value is present on the recipient, the associated data is returned.
 Otherwise the RPC is equivalent to a FIND_NODE and a set of k triples is returned.
-
 This is a primitive operation, not an iterative one.
 */
 func (network *Network) SendFindDataMessage(hash string) {
@@ -313,7 +312,6 @@ func (network *Network) SendFindDataMessage(hash string) {
 /*
 The sender of the STORE RPC provides a key and a block of data and requires that the recipient store the data
 and make it available for later retrieval by that key.
-
 This is a primitive operation, not an iterative one.
 */
 func (network *Network) SendStoreMessage(data []byte) { // prints hash when handling response
@@ -359,7 +357,6 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 	//	If there are fewer than alpha contacts in that bucket, contacts are selected from other buckets.
 	//	The contact closest to the target key, closestNode, is noted.
 	alphaClosest := network.Kademlia.AlphaClosest(&id, network.Alpha)
-	fmt.Println("AlphaClosest: ", alphaClosest)
 	closestNode := alphaClosest.contacts[0]
 	nodesContacted := ContactCandidates{make([]Contact, 0)}
 
@@ -370,32 +367,37 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 	//	Each contact, if it is live, should normally return k triples.
 	//	If any of the alpha contacts fails to reply, it is removed from the shortlist, at least temporarily.
 
+	for len(network.Channel) > 0 {
+		<-network.Channel
+	}
+
+	var wg sync.WaitGroup
 	messageList := make([]Message, network.Alpha)
-	count := 0
-	for i:=0; i<alphaClosest.Len(); i++ {
-		x := alphaClosest.contacts[i-count]
-		for len(network.Channel) > 0 {
-			<-network.Channel
-		}
-		go func() {
-			fmt.Println("1Sending message to: ", x.Address)
-			network.sendMessage(x.Address, msg)
-		}()
+	for i := 0; i < alphaClosest.Len(); i++ {
+		wg.Add(1)
+		x := alphaClosest.contacts[i]
+		fmt.Println("1Sending message to: ", x.Address)
+		network.sendMessage(x.Address, msg)
 		nodesContacted.AddOne(x)
 
-		select {
-		case res := <-network.Channel:
-			messageList = append(messageList, res)
+		go func() {
+			select {
+			case res := <-network.Channel:
+				messageList = append(messageList, res)
+				wg.Add(-1)
 
-		case <-time.After(1 * time.Second):
-			fmt.Println(x.Address)
-			shortList.Remove(x)
-			count++
-		}
+			case <-time.After(1 * time.Second):
+				fmt.Println(x.Address)
+				shortList.Remove(x)
+				wg.Add(-1)
+			}
+		}()
+
 	}
 
 	//  The node then fills the shortlist with contacts from the replies received.
 	//  These are those closest to the target.
+	wg.Wait()
 	for _, message := range messageList {
 		for _, x := range message.Contacts {
 			if !nodesContacted.Contains(x) && !shortList.Contains(x) {
@@ -408,9 +410,12 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 	//  The only condition for this selection is that they have not already been contacted.
 	//  Once again a FIND_* RPC is sent to each in parallel.
 
-	if shortList.Len() == 0{
+	if shortList.Len() == 0 {
 		return shortList
 	}
+
+	// Fresh and new WaitGroup
+	wg = sync.WaitGroup{}
 
 	for {
 		shortList.Sort()
@@ -421,31 +426,37 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 		}
 
 		for i := 0; i < network.Alpha; i++ {
-			count := 0
-			for j:=0; j<shortList.Len(); j++ {
-				x := shortList.contacts[j-count]
+			for j := 0; j < shortList.Len(); j++ {
+				x := shortList.contacts[j]
+
 				if !nodesContacted.Contains(x) {
+					wg.Add(1)
 					for len(network.Channel) > 0 {
 						<-network.Channel
 					}
+
+					fmt.Println("2Sending message to: ", x.Address)
+					network.sendMessage(x.Address, msg)
+					nodesContacted.AddOne(x)
+
 					go func() {
-						fmt.Println("2Sending message to: ", x.Address)
-						network.sendMessage(x.Address, msg)
+						select {
+						case res := <-network.Channel:
+							messageList = append(messageList, res)
+							wg.Add(-1)
+
+						case <-time.After(1 * time.Second):
+							fmt.Println("2Removing node: ", x.Address)
+							shortList.Remove(x)
+							wg.Add(-1)
+						}
 					}()
 
-					nodesContacted.AddOne(x)
-					select {
-					case res := <-network.Channel:
-						messageList = append(messageList, res)
-
-					case <-time.After(1 * time.Second):
-						shortList.Remove(x)
-						count++
-					}
 					break
 				}
 			}
 		}
+		wg.Wait()
 		for _, message := range messageList {
 			for _, x := range message.Contacts {
 				if !nodesContacted.Contains(x) && !shortList.Contains(x) {
@@ -477,6 +488,7 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 			break
 		}
 	}
+	fmt.Println("Shortlist at the end: ", shortList)
 	shortList.Sort()
 	return shortList
 }
