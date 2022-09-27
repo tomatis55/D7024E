@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -364,31 +365,37 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 	//	Each contact, if it is live, should normally return k triples.
 	//	If any of the alpha contacts fails to reply, it is removed from the shortlist, at least temporarily.
 
+	for len(network.Channel) > 0 {
+		<-network.Channel
+	}
+
+	var wg sync.WaitGroup
 	messageList := make([]Message, network.Alpha)
 	count := 0
 	for i := 0; i < alphaClosest.Len(); i++ {
+		wg.Add(1)
 		x := alphaClosest.contacts[i-count]
-		for len(network.Channel) > 0 {
-			<-network.Channel
-		}
 		go func() {
+
 			network.sendMessage(x.Address, msg)
+			nodesContacted.AddOne(x)
+
+			select {
+			case res := <-network.Channel:
+				messageList = append(messageList, res)
+
+			case <-time.After(1 * time.Second):
+				fmt.Println(x.Address)
+				shortList.Remove(x)
+				count++
+			}
 		}()
-		nodesContacted.AddOne(x)
 
-		select {
-		case res := <-network.Channel:
-			messageList = append(messageList, res)
-
-		case <-time.After(1 * time.Second):
-			fmt.Println(x.Address)
-			shortList.Remove(x)
-			count++
-		}
 	}
 
 	//  The node then fills the shortlist with contacts from the replies received.
 	//  These are those closest to the target.
+	wg.Wait()
 	for _, message := range messageList {
 		for _, x := range message.Contacts {
 			if !nodesContacted.Contains(x) && !shortList.Contains(x) {
@@ -405,6 +412,9 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 		return shortList
 	}
 
+	// Fresh and new WaitGroup
+	wg = sync.WaitGroup{}
+
 	for {
 		shortList.Sort()
 		if closestNode.ID.Equals(shortList.contacts[0].ID) {
@@ -417,23 +427,25 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 			count := 0
 			for j := 0; j < shortList.Len(); j++ {
 				x := shortList.contacts[j-count]
+
 				if !nodesContacted.Contains(x) {
+					wg.Add(1)
 					for len(network.Channel) > 0 {
 						<-network.Channel
 					}
 					go func() {
 						network.sendMessage(x.Address, msg)
+						nodesContacted.AddOne(x)
+						select {
+						case res := <-network.Channel:
+							messageList = append(messageList, res)
+
+						case <-time.After(1 * time.Second):
+							shortList.Remove(x)
+							count++
+						}
 					}()
 
-					nodesContacted.AddOne(x)
-					select {
-					case res := <-network.Channel:
-						messageList = append(messageList, res)
-
-					case <-time.After(1 * time.Second):
-						shortList.Remove(x)
-						count++
-					}
 					break
 				}
 			}
