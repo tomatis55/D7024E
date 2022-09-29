@@ -27,4 +27,12 @@ func TestNetwork(t *testing.T) {
 		t.Error("got ", contacts.contacts[0].ID.String(), "want ", c.ID.String())
 	}
 
+	msg := Message{}
+
+	err := network.sendMessage("localhost:8000", msg)
+
+	if err != nil {
+		t.Error("got ", err, "want ", nil)
+	}
+
 }

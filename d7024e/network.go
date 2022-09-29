@@ -2,6 +2,7 @@ package d7024e
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -224,10 +225,11 @@ func (network *Network) handlePacket(msg Message) {
 
 }
 
-func (network *Network) sendMessage(addr string, msg Message) {
+func (network *Network) sendMessage(addr string, msg Message) error {
 	conn, err := net.Dial("udp", addr)
 	if err != nil {
 		fmt.Println("DIAL error:", err)
+		return errors.New("DIAL error")
 	}
 	// conn.SetDeadline(time.Now().Add(time.Second))
 	defer conn.Close()
@@ -235,22 +237,25 @@ func (network *Network) sendMessage(addr string, msg Message) {
 	marshalled_msg, err := json.Marshal(msg)
 	if err != nil {
 		fmt.Println("Marshal error:", err)
+		return errors.New("Marshal error")
 	}
 	_, err = conn.Write(marshalled_msg)
 	fmt.Println("\nSENDING", msg.RPCtype, "MESSAGE TO", addr)
 
 	if err != nil {
 		fmt.Println("Write error:", err)
+		return errors.New("Marshal error")
 	}
+	return nil
 }
 
 // this function will send a ping message to a contact!
-func (network *Network) SendPingMessage(contact *Contact) {
+func (network *Network) SendPingMessage(contact *Contact) error {
 	msg := Message{
 		RPCtype: "PING",
 		Sender:  network.Kademlia.RoutingTable.me,
 	}
-	network.sendMessage(contact.Address, msg)
+	return network.sendMessage(contact.Address, msg)
 }
 
 /*
