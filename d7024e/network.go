@@ -291,7 +291,7 @@ func (network *Network) SendFindDataMessage(hash string) {
 	data, _, ok := network.Kademlia.LookupData(hash)
 	if ok {
 		// if data is in local node, print it
-		fmt.Println("I found the data you were looking for:", string(data))
+		fmt.Println("Found data:", string(data))
 		fmt.Println("in the node:                          ", network.Kademlia.RoutingTable.me.ID)
 	} else {
 		findDataMessage := Message{
@@ -374,35 +374,48 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 		<-network.Channel
 	}
 
+	nodesContactedThisIteration := ContactCandidates{make([]Contact, 0)}
 	var wg sync.WaitGroup
-	messageList := make([]Message, network.Alpha)
-	count := 0
-
+	messageList := make([]Message, 0, network.Alpha)
 	for i := 0; i < alphaClosest.Len(); i++ {
 		wg.Add(1)
-		x := alphaClosest.contacts[i-count]
+		x := alphaClosest.contacts[i]
 
 		network.sendMessage(x.Address, msg)
 		nodesContacted.AddOne(x)
-		go func() {
-			defer wg.Done()
+		nodesContactedThisIteration.AddOne(x)
 
+		go func(x Contact) {
+			defer wg.Done()
 			select {
 			case res := <-network.Channel:
 				messageList = append(messageList, res)
 
 			case <-time.After(1 * time.Second):
-				fmt.Println(x.Address)
-				shortList.Remove(x)
-				count++
-			}
-		}()
 
+				fmt.Println("1Waited more than 1 sec")
+			}
+		}(x)
 	}
 
 	//  The node then fills the shortlist with contacts from the replies received.
 	//  These are those closest to the target.
 	wg.Wait()
+
+	if len(messageList) < nodesContactedThisIteration.Len() {
+		for _, x := range nodesContactedThisIteration.contacts {
+			responded := false
+			for _, message := range messageList {
+				if message.Sender.ID.Equals(x.ID) {
+					responded = true
+				}
+			}
+			if !responded {
+				shortList.Remove(x)
+			}
+		}
+	}
+
 	for _, message := range messageList {
 		for _, x := range message.Contacts {
 			if !nodesContacted.Contains(x) && !shortList.Contains(x) {
@@ -430,37 +443,57 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 			closestNode = shortList.contacts[0]
 		}
 
+		nodesContactedThisIteration := ContactCandidates{make([]Contact, 0)}
+		messageList := make([]Message, 0, network.Alpha)
 		for i := 0; i < network.Alpha; i++ {
-			count := 0
 			for j := 0; j < shortList.Len(); j++ {
-				x := shortList.contacts[j-count]
+				x := shortList.contacts[j]
 
 				if !nodesContacted.Contains(x) {
 					wg.Add(1)
 					for len(network.Channel) > 0 {
 						<-network.Channel
 					}
+
 					network.sendMessage(x.Address, msg)
 					nodesContacted.AddOne(x)
-					go func() {
-						defer wg.Done()
+					nodesContactedThisIteration.AddOne(x)
 
+					go func(x Contact) {
+						defer wg.Done()
 						select {
 						case res := <-network.Channel:
 							messageList = append(messageList, res)
 
 						case <-time.After(1 * time.Second):
-							shortList.Remove(x)
-							count++
+
+							fmt.Println("2Waited more than 1 sec")
 						}
-					}()
+					}(x)
 
 					break
 				}
 			}
 		}
-
 		wg.Wait()
+
+		if len(messageList) < nodesContactedThisIteration.Len() {
+			for _, x := range nodesContactedThisIteration.contacts {
+				responded := false
+				for _, message := range messageList {
+					if message.Sender.ID.Equals(x.ID) {
+						responded = true
+					}
+				}
+				if !responded {
+
+					shortList.Remove(x)
+				}
+			}
+		}
+
+		//check number of messages received, if less than expected, remove node
+
 		for _, message := range messageList {
 			for _, x := range message.Contacts {
 				if !nodesContacted.Contains(x) && !shortList.Contains(x) {
