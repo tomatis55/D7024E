@@ -3,7 +3,11 @@ package main
 import (
 	"crypto/sha1"
 	"encoding/hex"
+	"fmt"
+	"time"
 )
+
+var TimeToLive time.Duration = time.Second * 30 // deathTimer
 
 type Kademlia struct {
 	RoutingTable *RoutingTable
@@ -43,6 +47,13 @@ func (kademlia *Kademlia) GetHashID(encodedHash string) KademliaID {
 func (kademlia *Kademlia) Store(data []byte) string {
 	encodedHash := kademlia.GetHash(data)
 	kademlia.Data[encodedHash] = data
+
+	go func(ttl time.Duration, hash string) {
+		time.Sleep(ttl)
+		fmt.Println("hello! data at hash", hash, "is expiring now")
+		kademlia.Data[hash] = nil
+	}(TimeToLive, encodedHash)
+
 	return encodedHash
 }
 
@@ -54,31 +65,7 @@ func (kademlia *Kademlia) RemoveContact(contact *Contact) {
 }
 
 func (kademlia *Kademlia) AlphaClosest(id *KademliaID, alpha int) ContactCandidates {
-	kClosestContacts := kademlia.RoutingTable.FindClosestContacts(id, kademlia.K)
-	count := 0
-	if len(kClosestContacts) < alpha {
-		alphaClosest := make([]Contact, alpha)
-		for _, x := range kademlia.RoutingTable.buckets {
-			for e := x.list.Front(); e != nil; e = e.Next() {
-				alphaClosest = append(alphaClosest, e.Value.(Contact))
-				count++
-				if count == alpha {
-					contacts := ContactCandidates{alphaClosest}
-					contacts.Sort()
-					return contacts
-				}
-			}
-
-		}
-
-	} else {
-		contacts := ContactCandidates{kClosestContacts[0:alpha]}
-		contacts.Sort()
-		return contacts
-	}
-	contacts := ContactCandidates{kClosestContacts}
-	contacts.Sort()
-	return contacts
+	return ContactCandidates{kademlia.RoutingTable.FindClosestContacts(id, alpha)}
 }
 
 func (kademlia *Kademlia) GetAllContacts() ContactCandidates {
