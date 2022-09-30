@@ -2,10 +2,11 @@ package d7024e
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
-	"time"
 	"sync"
+	"time"
 )
 
 type Network struct {
@@ -168,19 +169,19 @@ func (network *Network) handlePacket(msg Message) {
 		// add sender to my bucket
 
 		_, contacts, _ := network.Kademlia.LookupData(msg.Hash)
-		
+
 		fmt.Println("data, data, data, must be funny in the rich mans world")
 
 		ack := Message{
-			RPCtype: "FIND_DATA_ACK",
-			Sender:  network.Kademlia.RoutingTable.me,
-			Hash: msg.Hash,
+			RPCtype:  "FIND_DATA_ACK",
+			Sender:   network.Kademlia.RoutingTable.me,
+			Hash:     msg.Hash,
 			Contacts: contacts.contacts,
 		}
 		network.sendMessage(msg.Sender.Address, ack)
 
 	case "FIND_DATA_ACK":
-		
+
 		for i, contact := range msg.Contacts {
 			contact.CalcDistance(NewKademliaID(msg.Hash))
 			msg.Contacts[i] = contact
@@ -231,30 +232,34 @@ func (network *Network) handlePacket(msg Message) {
 
 }
 
-func (network *Network) sendMessage(addr string, msg Message) {
+func (network *Network) sendMessage(addr string, msg Message) error {
 	conn, err := net.Dial("udp", addr)
 	if err != nil {
 		fmt.Println("DIAL error:", err)
+		return errors.New("DIAL error")
 	}
 	defer conn.Close()
 
 	marshalled_msg, err := json.Marshal(msg)
 	if err != nil {
 		fmt.Println("Marshal error:", err)
+		return errors.New("Marshal error")
 	}
 	_, err = conn.Write(marshalled_msg)
 	if err != nil {
 		fmt.Println("Write error:", err)
+		return errors.New("Write error")
 	}
+	return nil
 }
 
 // this function will send a ping message to a contact!
-func (network *Network) SendPingMessage(contact *Contact) {
+func (network *Network) SendPingMessage(contact *Contact) error {
 	msg := Message{
 		RPCtype: "PING",
 		Sender:  network.Kademlia.RoutingTable.me,
 	}
-	network.sendMessage(contact.Address, msg)
+	return network.sendMessage(contact.Address, msg)
 }
 
 /*
@@ -268,7 +273,7 @@ func (network *Network) SendTerminateNodeMessage() {
 	network.sendMessage(network.Kademlia.RoutingTable.me.Address, msg)
 }
 
-func (network *Network) SendFindContactMessage(contact *Contact) ContactCandidates{
+func (network *Network) SendFindContactMessage(contact *Contact) ContactCandidates {
 
 	msg := Message{
 		RPCtype:      "FIND_CONTACT", // basically ive found you as a contact pls add me to your bucket.
@@ -334,13 +339,12 @@ func (network *Network) SendStoreMessage(data []byte) { // prints hash when hand
 		Hash:    hash,
 	}
 
-	distFromMe := network.Kademlia.RoutingTable.me.ID.CalcDistance(NewKademliaID(hash))
-	if distFromMe.Less(contacts.contacts[0].distance) {
-		network.sendMessage(network.Kademlia.RoutingTable.me.Address, storeMessage)
-	}else{
-		network.sendMessage(contacts.contacts[0].Address, storeMessage)
+	for i, contact := range contacts.contacts {
+		if i == network.Kademlia.K {
+			break
+		}
+		network.sendMessage(contact.Address, storeMessage)
 	}
-
 	// and then tell closest node to actually store it
 }
 
@@ -377,7 +381,7 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 	for i := 0; i < alphaClosest.Len(); i++ {
 		wg.Add(1)
 		x := alphaClosest.contacts[i]
-		
+
 		fmt.Println("1Sending message to: ", x.Address)
 		network.sendMessage(x.Address, msg)
 		nodesContacted.AddOne(x)
@@ -401,11 +405,11 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 	//  These are those closest to the target.
 	wg.Wait()
 
-	if len(messageList) < nodesContactedThisIteration.Len(){
+	if len(messageList) < nodesContactedThisIteration.Len() {
 		for _, x := range nodesContactedThisIteration.contacts {
 			responded := false
 			for _, message := range messageList {
-				if message.Sender.ID.Equals(x.ID){
+				if message.Sender.ID.Equals(x.ID) {
 					responded = true
 				}
 			}
@@ -434,7 +438,6 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 
 	// Fresh and new WaitGroup
 	wg = sync.WaitGroup{}
-	
 
 	for {
 		shortList.Sort()
@@ -480,11 +483,11 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 		}
 		wg.Wait()
 
-		if len(messageList) < nodesContactedThisIteration.Len(){
+		if len(messageList) < nodesContactedThisIteration.Len() {
 			for _, x := range nodesContactedThisIteration.contacts {
 				responded := false
 				for _, message := range messageList {
-					if message.Sender.ID.Equals(x.ID){
+					if message.Sender.ID.Equals(x.ID) {
 						responded = true
 					}
 				}

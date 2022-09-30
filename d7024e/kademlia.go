@@ -54,34 +54,10 @@ func (kademlia *Kademlia) RemoveContact(contact *Contact) {
 }
 
 func (kademlia *Kademlia) AlphaClosest(id *KademliaID, alpha int) ContactCandidates {
-	kClosestContacts := kademlia.RoutingTable.FindClosestContacts(id, kademlia.K)
-	count := 0
-	if len(kClosestContacts) < alpha {
-		alphaClosest := make([]Contact, alpha)
-		for _, x := range kademlia.RoutingTable.buckets {
-			for e := x.list.Front(); e != nil; e = e.Next() {
-				alphaClosest = append(alphaClosest, e.Value.(Contact))
-				count++
-				if count == alpha {
-					contacts := ContactCandidates{alphaClosest}
-					contacts.Sort()
-					return contacts
-				}
-			}
-		}
-
-	} else {
-		contacts := ContactCandidates{kClosestContacts[0:alpha]}
-		contacts.Sort()
-		return contacts
-	}
-	contacts := ContactCandidates{kClosestContacts}
-	contacts.Sort()
-	return contacts
+	return ContactCandidates{kademlia.RoutingTable.FindClosestContacts(id, alpha)}
 }
 
-
-func (kademlia *Kademlia) GetAllContacts() ContactCandidates{
+func (kademlia *Kademlia) GetAllContacts() ContactCandidates {
 	contacts := ContactCandidates{}
 	for _, bucket := range kademlia.RoutingTable.buckets {
 		for e := bucket.list.Front(); e != nil; e = e.Next() {
