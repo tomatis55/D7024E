@@ -17,6 +17,17 @@ func Get(hash string) {
 	}
 }
 
+func Forget(hash string) {
+
+	if len(hash) == 40 && isHexString(hash) {
+
+		NodeNetwork.SendForgetMessage(hash)
+
+	} else {
+		fmt.Println("Wrong hash format, please enter a valid hash ")
+	}
+}
+
 func isHexString(s string) bool {
 	_, err := hex.DecodeString(s)
 	return err == nil

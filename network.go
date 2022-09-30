@@ -9,9 +9,10 @@ import (
 )
 
 type Network struct {
-	Kademlia Kademlia
-	Alpha    int
-	Channel  chan Message
+	Kademlia         Kademlia
+	Alpha            int
+	Channel          chan Message
+	ForgetChannelMap map[string]chan bool
 }
 
 type Message struct {
@@ -188,7 +189,7 @@ func (network *Network) handlePacket(msg Message) {
 		network.Kademlia.RefreshData(msg.Hash)
 		if msg.Data != nil {
 			fmt.Println("I found the data you were looking for:", string(msg.Data))
-			fmt.Println("in the node:                          ", msg.Sender.ID)
+			fmt.Println("in the node:", msg.Sender.ID)
 		} else {
 			fmt.Println("no data exist at provided hash :(")
 		}
@@ -197,6 +198,7 @@ func (network *Network) handlePacket(msg Message) {
 
 		fmt.Println("the winner stores it all, the loser has to fall")
 		hash := network.Kademlia.Store(msg.Data)
+
 		ack := Message{
 			RPCtype: "STORE_ACK",
 			Sender:  network.Kademlia.RoutingTable.me,
@@ -207,12 +209,29 @@ func (network *Network) handlePacket(msg Message) {
 	case "STORE_ACK":
 
 		network.Channel <- msg
+		network.ForgetChannelMap[msg.Hash] = make(chan bool)
 		fmt.Println("the data has been stored with the hash: ", msg.Hash)
 
 	case "REFRESH":
 
 		network.Kademlia.RefreshData(msg.Hash)
 		fmt.Println("some data has been refreshed at hash: ", msg.Hash)
+
+	case "FORGET":
+
+		// fmt.Println("the data at this hash is set to be forgotten: ", msg.Hash)
+		// fmt.Println("bigstuff", network.ForgetChannelMap[msg.Hash])
+		// fmt.Println("HELLO")
+		ack := Message{
+			RPCtype: "FORGET_ACK",
+			Sender:  network.Kademlia.RoutingTable.me,
+			Hash:    msg.Hash,
+		}
+		network.sendMessage(msg.Sender.Address, ack)
+
+	case "FORGET_ACK":
+		fmt.Println("i wanna die :D")
+		network.ForgetChannelMap[msg.Hash] <- true // forget = true
 
 	default:
 		fmt.Println("oh no unknown message type recieved")
@@ -257,6 +276,30 @@ func (network *Network) SendTerminateNodeMessage() {
 	network.sendMessage(network.Kademlia.RoutingTable.me.Address, msg)
 }
 
+func (network *Network) SendForgetMessage(hash string) {
+
+	findDataMessage := Message{
+		RPCtype: "FIND_DATA",
+		Sender:  network.Kademlia.RoutingTable.me,
+		Hash:    hash,
+	}
+	contacts := network.FindClosestNodes(findDataMessage) // list
+
+	forgetMessage := Message{
+		RPCtype: "FORGET",
+		Hash:    hash,
+		Sender:  network.Kademlia.RoutingTable.me,
+	}
+
+	// send forgetMessage to k closest nodes
+	for i, contact := range contacts.contacts {
+		if i == network.Kademlia.K {
+			break
+		}
+		network.sendMessage(contact.Address, forgetMessage)
+	}
+}
+
 func (network *Network) SendFindContactMessage(contact *Contact) ContactCandidates {
 
 	msg := Message{
@@ -279,7 +322,7 @@ func (network *Network) SendFindDataMessage(hash string) {
 	if ok {
 		// if data is in local node, print it
 		fmt.Println("I found the data you were looking for:", string(data))
-		fmt.Println("in the node:                          ", network.Kademlia.RoutingTable.me.ID)
+		fmt.Println("in the node:", network.Kademlia.RoutingTable.me.ID)
 	} else {
 		findDataMessage := Message{
 			RPCtype: "FIND_DATA",
@@ -329,18 +372,31 @@ func (network *Network) SendStoreMessage(data []byte) { // prints hash when hand
 			break
 		}
 		network.sendMessage(contact.Address, storeMessage)
-		// and to perpetually refresh the ttl-timer
-		go func(refHash string, target Contact, me Contact) {
-			refreshMessage := Message{
-				RPCtype: "REFRESH",
-				Sender:  me,
-				Hash:    refHash,
+		go network.SendRefreshMessage(hash, contact, network.Kademlia.RoutingTable.me)
+	}
+}
+
+func (network *Network) SendRefreshMessage(refHash string, target Contact, me Contact) {
+	refreshMessage := Message{
+		RPCtype: "REFRESH",
+		Sender:  me,
+		Hash:    refHash,
+	}
+	// and to perpetually refresh the ttl-timer
+	// or untill we get a true from forgetChannel
+	for { // while (not forget) {...}
+		fmt.Println("forget: loop")
+		select {
+		case forget := <-network.ForgetChannelMap[refHash]:
+			fmt.Println("I AM INSIDE THE CASE NOW!!!")
+			if forget {
+				fmt.Printf("forgetting %v now!\n", refHash)
+				return
 			}
-			for {
-				time.Sleep(TimeToLive - time.Second*3)
-				network.sendMessage(target.Address, refreshMessage)
-			}
-		}(hash, contact, network.Kademlia.RoutingTable.me)
+		case <-time.After(TimeToLive - time.Second*3):
+			fmt.Println("sendin a REFRESHIN message")
+			network.sendMessage(target.Address, refreshMessage)
+		}
 	}
 }
 

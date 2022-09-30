@@ -55,6 +55,9 @@ func main() {
 		case inputSlices[0] == "get" && len(inputSlices) == 2:
 			Get(inputSlices[1])
 
+		case inputSlices[0] == "forget" && len(inputSlices) == 2:
+			Forget(inputSlices[1])
+
 		case inputSlices[0] == "put" && len(inputSlices) == 2:
 			Put(inputSlices[1])
 

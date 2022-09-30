@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-var TimeToLive time.Duration = time.Second * 30 // deathTimer
+var TimeToLive time.Duration = time.Second * 15 // deathTimer
 // var RefreshChannel chan string = make(chan string)
 
 type Kademlia struct {
@@ -63,7 +63,7 @@ func (kademlia *Kademlia) Store(data []byte) string {
 				fmt.Println("hello! data at hash", hash, "is expiring now")
 				kademlia.Data[hash] = nil
 				kademlia.ChannelMap[hash] = nil
-				break
+				return
 			}
 		}
 	}(TimeToLive, encodedHash)
