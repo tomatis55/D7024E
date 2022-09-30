@@ -96,3 +96,12 @@ func TestKademlia(t *testing.T) {
 	}
 
 }
+
+func TestKademliaID(t *testing.T) {
+	randomId1 := NewRandomKademliaID()
+	randomId2 := NewRandomKademliaID()
+
+	if randomId1.Equals(randomId2) {
+		t.Error("Not randomly generated ID")
+	}
+}
