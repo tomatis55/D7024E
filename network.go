@@ -209,7 +209,7 @@ func (network *Network) handlePacket(msg Message) {
 	case "STORE_ACK":
 
 		network.Channel <- msg
-		network.ForgetChannelMap[msg.Hash] = make(chan bool)
+		network.ForgetChannelMap[msg.Hash] = make(chan bool, 1)
 		fmt.Println("the data has been stored with the hash: ", msg.Hash)
 
 	case "REFRESH":
@@ -230,7 +230,7 @@ func (network *Network) handlePacket(msg Message) {
 		network.sendMessage(msg.Sender.Address, ack)
 
 	case "FORGET_ACK":
-		fmt.Println("i wanna die :D")
+		fmt.Println("i wanna die")
 		network.ForgetChannelMap[msg.Hash] <- true // forget = true
 
 	default:
@@ -293,9 +293,10 @@ func (network *Network) SendForgetMessage(hash string) {
 
 	// send forgetMessage to k closest nodes
 	for i, contact := range contacts.contacts {
-		if i == network.Kademlia.K {
+		if i > network.Kademlia.K {
 			break
 		}
+		fmt.Println("sending forgetMessage to", contact.Address)
 		network.sendMessage(contact.Address, forgetMessage)
 	}
 }
@@ -368,7 +369,7 @@ func (network *Network) SendStoreMessage(data []byte) { // prints hash when hand
 
 	// and then tell k closests node to actually store it
 	for i, contact := range contacts.contacts {
-		if i == network.Kademlia.K {
+		if i > network.Kademlia.K {
 			break
 		}
 		network.sendMessage(contact.Address, storeMessage)
