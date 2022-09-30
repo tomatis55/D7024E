@@ -11,7 +11,7 @@ func InitalizeSuperNode(id string, ip string) {
 	k := 4
 	me := NewContact(NewKademliaID(id), ip)
 	me.CalcDistance(me.ID)
-	NodeNetwork = Network{Kademlia{NewRoutingTable(me), k, make(map[string][]byte)}, alpha, make(chan Message, alpha)}
+	NodeNetwork = Network{Kademlia{NewRoutingTable(me), k, make(map[string][]byte), make(map[string]chan string)}, alpha, make(chan Message, alpha)}
 
 	go NodeNetwork.Listen(ip, 80)
 }
@@ -22,7 +22,7 @@ func InitalizeNode(ip string, idSuperNode string, ipSuperNode string, port strin
 	me := NewContact(NewRandomKademliaID(), ip)
 	me.CalcDistance(me.ID)
 	fmt.Println("Node ID: ", me.ID)
-	NodeNetwork = Network{Kademlia{NewRoutingTable(me), k, make(map[string][]byte)}, alpha, make(chan Message, alpha)}
+	NodeNetwork = Network{Kademlia{NewRoutingTable(me), k, make(map[string][]byte), make(map[string]chan string)}, alpha, make(chan Message, alpha)}
 
 	go NodeNetwork.Listen(ip, 80)
 	superNode := NewContact(NewKademliaID(idSuperNode), ipSuperNode+port)

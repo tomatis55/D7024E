@@ -8,11 +8,13 @@ import (
 )
 
 var TimeToLive time.Duration = time.Second * 30 // deathTimer
+// var RefreshChannel chan string = make(chan string)
 
 type Kademlia struct {
 	RoutingTable *RoutingTable
 	K            int
 	Data         map[string][]byte
+	ChannelMap   map[string]chan string
 }
 
 func (kademlia *Kademlia) LookupContact(target *Contact) ContactCandidates {
@@ -47,14 +49,30 @@ func (kademlia *Kademlia) GetHashID(encodedHash string) KademliaID {
 func (kademlia *Kademlia) Store(data []byte) string {
 	encodedHash := kademlia.GetHash(data)
 	kademlia.Data[encodedHash] = data
+	kademlia.ChannelMap[encodedHash] = make(chan string)
 
 	go func(ttl time.Duration, hash string) {
-		time.Sleep(ttl)
-		fmt.Println("hello! data at hash", hash, "is expiring now")
-		kademlia.Data[hash] = nil
+		for {
+			select {
+			//	but what if multiple data stored in same node? :HMMM
+			case _ = <-kademlia.ChannelMap[hash]:
+				// if we recieve a refresh we reset ttl-timer
+				continue
+			case <-time.After(ttl):
+				// if no refreshes we kill the data
+				fmt.Println("hello! data at hash", hash, "is expiring now")
+				kademlia.Data[hash] = nil
+				kademlia.ChannelMap[hash] = nil
+				break
+			}
+		}
 	}(TimeToLive, encodedHash)
 
 	return encodedHash
+}
+
+func (kademlia *Kademlia) RefreshData(hash string) {
+	kademlia.ChannelMap[hash] <- "hi"
 }
 
 func (kademlia *Kademlia) RemoveContact(contact *Contact) {

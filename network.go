@@ -109,14 +109,11 @@ func (network *Network) updateBucket(sender Contact) {
 Handles the incoming packet, will do different things according to value of msg.RPCtype.
 */
 func (network *Network) handlePacket(msg Message) {
-
 	network.updateBucket(msg.Sender)
 
 	switch msg.RPCtype {
 	case "PING":
 		fmt.Println("you can ping, you can jive, having the time of your life")
-
-		// add sender to my bucket
 
 		// send ack back
 		ack := Message{
@@ -126,15 +123,9 @@ func (network *Network) handlePacket(msg Message) {
 		network.sendMessage(msg.Sender.Address, ack)
 
 	case "PING_ACK":
-		// add sender to my bucket
 		fmt.Println(string("ping PONG, i hear you!"))
 
 	case "FIND_CONTACT":
-		/*
-			TODO:
-			do more kademlia stuff, what does a node do when it recieves a find_contact message?
-		*/
-		// add sender to my bucket
 		fmt.Println("find me, find me, find me a contact after midnight")
 		contacts := network.Kademlia.LookupContact(msg.QueryContact)
 
@@ -147,10 +138,6 @@ func (network *Network) handlePacket(msg Message) {
 		network.sendMessage(msg.Sender.Address, ack)
 
 	case "FIND_CONTACT_ACK":
-		/*
-			TODO:
-		*/
-		// add sender to my bucket
 
 		for i, contact := range msg.Contacts {
 			contact.CalcDistance(network.Kademlia.RoutingTable.me.ID)
@@ -165,10 +152,7 @@ func (network *Network) handlePacket(msg Message) {
 			if we recieve this message its because someone found that we probably contain the data someone is asking for
 			now we just want to send the data back, this should be doable by using the hash as a key in the datamap in kademlia
 		*/
-		// add sender to my bucket
-
 		_, contacts, _ := network.Kademlia.LookupData(msg.Hash)
-
 		fmt.Println("data, data, data, must be funny in the rich mans world")
 
 		ack := Message{
@@ -194,12 +178,14 @@ func (network *Network) handlePacket(msg Message) {
 		ack := Message{
 			RPCtype: "RECOVER_DATA_ACK",
 			Sender:  network.Kademlia.RoutingTable.me,
+			Hash:    msg.Hash,
 			Data:    data,
 		}
 		network.sendMessage(msg.Sender.Address, ack)
 
 	case "RECOVER_DATA_ACK":
 
+		network.Kademlia.RefreshData(msg.Hash)
 		if msg.Data != nil {
 			fmt.Println("I found the data you were looking for:", string(msg.Data))
 			fmt.Println("in the node:                          ", msg.Sender.ID)
@@ -208,11 +194,9 @@ func (network *Network) handlePacket(msg Message) {
 		}
 
 	case "STORE":
-		// add sender to my bucket
+
 		fmt.Println("the winner stores it all, the loser has to fall")
-
 		hash := network.Kademlia.Store(msg.Data)
-
 		ack := Message{
 			RPCtype: "STORE_ACK",
 			Sender:  network.Kademlia.RoutingTable.me,
@@ -221,9 +205,14 @@ func (network *Network) handlePacket(msg Message) {
 		network.sendMessage(msg.Sender.Address, ack)
 
 	case "STORE_ACK":
-		// add sender to my bucket
+
 		network.Channel <- msg
 		fmt.Println("the data has been stored with the hash: ", msg.Hash)
+
+	case "REFRESH":
+
+		network.Kademlia.RefreshData(msg.Hash)
+		fmt.Println("some data has been refreshed at hash: ", msg.Hash)
 
 	default:
 		fmt.Println("oh no unknown message type recieved")
@@ -334,14 +323,25 @@ func (network *Network) SendStoreMessage(data []byte) { // prints hash when hand
 		Hash:    hash,
 	}
 
-	distFromMe := network.Kademlia.RoutingTable.me.ID.CalcDistance(NewKademliaID(hash))
-	if distFromMe.Less(contacts.contacts[0].distance) {
-		network.sendMessage(network.Kademlia.RoutingTable.me.Address, storeMessage)
-	} else {
-		network.sendMessage(contacts.contacts[0].Address, storeMessage)
+	// and then tell k closests node to actually store it
+	for i, contact := range contacts.contacts {
+		if i == network.Kademlia.K {
+			break
+		}
+		network.sendMessage(contact.Address, storeMessage)
+		// and to perpetually refresh the ttl-timer
+		go func(refHash string, target Contact, me Contact) {
+			refreshMessage := Message{
+				RPCtype: "REFRESH",
+				Sender:  me,
+				Hash:    refHash,
+			}
+			for {
+				time.Sleep(TimeToLive - time.Second*3)
+				network.sendMessage(target.Address, refreshMessage)
+			}
+		}(hash, contact, network.Kademlia.RoutingTable.me)
 	}
-
-	// and then tell closest node to actually store it
 }
 
 func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
