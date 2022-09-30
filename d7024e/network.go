@@ -127,15 +127,9 @@ func (network *Network) handlePacket(msg Message) {
 		network.sendMessage(msg.Sender.Address, ack)
 
 	case "PING_ACK":
-		// add sender to my bucket
 		fmt.Println(string("ping PONG, i hear you!"))
 
 	case "FIND_CONTACT":
-		/*
-			TODO:
-			do more kademlia stuff, what does a node do when it recieves a find_contact message?
-		*/
-		// add sender to my bucket
 		fmt.Println("find me, find me, find me a contact after midnight")
 		contacts := network.Kademlia.LookupContact(msg.QueryContact)
 
@@ -148,10 +142,6 @@ func (network *Network) handlePacket(msg Message) {
 		network.sendMessage(msg.Sender.Address, ack)
 
 	case "FIND_CONTACT_ACK":
-		/*
-			TODO:
-		*/
-		// add sender to my bucket
 
 		for i, contact := range msg.Contacts {
 			contact.CalcDistance(network.Kademlia.RoutingTable.me.ID)
@@ -162,12 +152,6 @@ func (network *Network) handlePacket(msg Message) {
 		network.Channel <- msg
 
 	case "FIND_DATA":
-		/*
-			if we recieve this message its because someone found that we probably contain the data someone is asking for
-			now we just want to send the data back, this should be doable by using the hash as a key in the datamap in kademlia
-		*/
-		// add sender to my bucket
-
 		_, contacts, _ := network.Kademlia.LookupData(msg.Hash)
 
 		fmt.Println("data, data, data, must be funny in the rich mans world")
@@ -290,7 +274,7 @@ A FIND_VALUE RPC includes a B=160-bit key. If a corresponding value is present o
 Otherwise the RPC is equivalent to a FIND_NODE and a set of k triples is returned.
 This is a primitive operation, not an iterative one.
 */
-func (network *Network) SendFindDataMessage(hash string) {
+func (network *Network) SendFindDataMessage(hash string) ContactCandidates {
 	data, _, ok := network.Kademlia.LookupData(hash)
 	if ok {
 		// if data is in local node, print it
@@ -304,14 +288,18 @@ func (network *Network) SendFindDataMessage(hash string) {
 		}
 		contacts := network.FindClosestNodes(findDataMessage) // list
 
-		recoverDataMessage := Message{
-			RPCtype: "RECOVER_DATA",
-			Sender:  network.Kademlia.RoutingTable.me,
-			Hash:    hash,
+		if contacts.Len() != 0 {
+			recoverDataMessage := Message{
+				RPCtype: "RECOVER_DATA",
+				Sender:  network.Kademlia.RoutingTable.me,
+				Hash:    hash,
+			}
+			fmt.Println("Sending recover data msg to: ", contacts.contacts[0].Address)
+			network.sendMessage(contacts.contacts[0].Address, recoverDataMessage)
 		}
-		fmt.Println("Sending recover data msg to: ", contacts.contacts[0].Address)
-		network.sendMessage(contacts.contacts[0].Address, recoverDataMessage)
+		return contacts
 	}
+	return ContactCandidates{}
 }
 
 /*
