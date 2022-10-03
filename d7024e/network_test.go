@@ -18,7 +18,7 @@ func TestNetwork(t *testing.T) {
 	k := 4
 	alpha := 3
 	kademlia := Kademlia{rt, k, make(map[string][]byte)}
-	network := Network{kademlia, alpha, make(chan Message, alpha)}
+	network := Network{kademlia, alpha, make(chan Message, alpha), make(chan []byte)}
 
 	c := NewContact(NewKademliaID("0000000000000000000000000000000000000007"), "localhost:8007")
 
@@ -75,7 +75,7 @@ func TestNetwork(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	fmt.Println("after sleep, before receive")
-	msgReceived := <-network.Channel
+	msgReceived := <-network.MsgChannel
 
 	fmt.Println("after sleep and receive")
 

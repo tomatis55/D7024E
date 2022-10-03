@@ -10,9 +10,10 @@ import (
 )
 
 type Network struct {
-	Kademlia Kademlia
-	Alpha    int
-	Channel  chan Message
+	Kademlia          Kademlia
+	Alpha             int
+	MsgChannel        chan Message
+	DataExistsChannel chan []byte
 }
 
 type Message struct {
@@ -93,7 +94,7 @@ func (network *Network) updateBucket(sender Contact) {
 			}()
 
 			select {
-			case _ = <-network.Channel:
+			case _ = <-network.MsgChannel:
 				// if alive we drop the new contact
 				return
 
@@ -149,7 +150,7 @@ func (network *Network) handlePacket(msg Message) {
 			network.updateBucket(contact)
 		}
 
-		network.Channel <- msg
+		network.MsgChannel <- msg
 
 	case "FIND_DATA":
 		_, contacts, _ := network.Kademlia.LookupData(msg.Hash)
@@ -170,7 +171,7 @@ func (network *Network) handlePacket(msg Message) {
 			contact.CalcDistance(NewKademliaID(msg.Hash))
 			msg.Contacts[i] = contact
 		}
-		network.Channel <- msg
+		network.MsgChannel <- msg
 
 	case "RECOVER_DATA":
 
@@ -186,10 +187,9 @@ func (network *Network) handlePacket(msg Message) {
 	case "RECOVER_DATA_ACK":
 
 		if msg.Data != nil {
-			fmt.Println("I found the data you were looking for:", string(msg.Data))
-			fmt.Println("in the node:                          ", msg.Sender.ID)
+			network.DataExistsChannel <- msg.Data
 		} else {
-			fmt.Println("no data exist at provided hash :(")
+			network.DataExistsChannel <- nil
 		}
 
 	case "STORE":
@@ -207,8 +207,7 @@ func (network *Network) handlePacket(msg Message) {
 
 	case "STORE_ACK":
 		// add sender to my bucket
-		network.Channel <- msg
-		fmt.Println("the data has been stored with the hash: ", msg.Hash)
+		network.MsgChannel <- msg
 
 	default:
 		fmt.Println("oh no unknown message type recieved")
@@ -294,8 +293,30 @@ func (network *Network) SendFindDataMessage(hash string) ContactCandidates {
 				Sender:  network.Kademlia.RoutingTable.me,
 				Hash:    hash,
 			}
-			fmt.Println("Sending recover data msg to: ", contacts.contacts[0].Address)
+
 			network.sendMessage(contacts.contacts[0].Address, recoverDataMessage)
+
+			for i := 1; i < contacts.Len(); i++ {
+				select {
+				case data := <-network.DataExistsChannel:
+					if data != nil {
+						// break
+						fmt.Println("I found the data you were looking for:", string(data))
+						fmt.Println("in the node:                          ", contacts.contacts[i-1].ID)
+						return contacts
+					} else {
+						// send msg to next index in contacts.contacts
+						network.sendMessage(contacts.contacts[i].Address, recoverDataMessage)
+					}
+
+				case <-time.After(1 * time.Second):
+					// send msg to next index in contacts.contacts
+					network.sendMessage(contacts.contacts[i].Address, recoverDataMessage)
+				}
+			}
+
+			fmt.Println("no data exist at provided hash :(")
+
 		}
 		return contacts
 	}
@@ -333,6 +354,7 @@ func (network *Network) SendStoreMessage(data []byte) { // prints hash when hand
 		}
 		network.sendMessage(contact.Address, storeMessage)
 	}
+	fmt.Println("the data has been stored with the hash: ", hash)
 	// and then tell closest node to actually store it
 }
 
@@ -359,8 +381,8 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 	//	Each contact, if it is live, should normally return k triples.
 	//	If any of the alpha contacts fails to reply, it is removed from the shortlist, at least temporarily.
 
-	for len(network.Channel) > 0 {
-		<-network.Channel
+	for len(network.MsgChannel) > 0 {
+		<-network.MsgChannel
 	}
 
 	nodesContactedThisIteration := ContactCandidates{make([]Contact, 0)}
@@ -378,7 +400,7 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 		go func(x Contact) {
 			defer wg.Done()
 			select {
-			case res := <-network.Channel:
+			case res := <-network.MsgChannel:
 				messageList = append(messageList, res)
 
 			case <-time.After(1 * time.Second):
@@ -443,8 +465,8 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 
 				if !nodesContacted.Contains(x) {
 					wg.Add(1)
-					for len(network.Channel) > 0 {
-						<-network.Channel
+					for len(network.MsgChannel) > 0 {
+						<-network.MsgChannel
 					}
 
 					fmt.Println("2Sending message to: ", x.Address)
@@ -455,7 +477,7 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 					go func(x Contact) {
 						defer wg.Done()
 						select {
-						case res := <-network.Channel:
+						case res := <-network.MsgChannel:
 							messageList = append(messageList, res)
 
 						case <-time.After(1 * time.Second):
