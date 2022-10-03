@@ -119,8 +119,23 @@ func TestNetwork(t *testing.T) {
 		t.Error("got ", candidates3.contacts[0].Address, "want: ", "127.0.0.1:8012")
 	}
 
+	rt5 := NewRoutingTable(NewContact(NewKademliaID("111111111111111111111111111111111111111f"), "127.0.0.1:8015"))
+	rt5.AddContact(NewContact(NewKademliaID("000000000000000000000000000000000000000c"), "127.0.0.1:8012"))
+	rt2.AddContact(NewContact(NewKademliaID("111111111111111111111111111111111111111f"), "127.0.0.1:8015"))
+	kademlia5 := Kademlia{rt5, k, make(map[string][]byte)}
+	network5 := Network{kademlia5, alpha, make(chan Message, alpha), make(chan []byte)}
+	go network5.Listen("127.0.0.1", 8015)
+
+	e := NewContact(NewKademliaID("111111111111111111111111111111111111111f"), "127.0.0.1:8015")
+	candidates4 := network3.SendFindContactMessage(&e)
+
+	if !candidates4.contacts[0].ID.Equals(NewKademliaID("111111111111111111111111111111111111111f")) {
+		t.Error("got ", candidates4.contacts[0].Address, "want: ", "127.0.0.1:8015")
+	}
+
 	network2.SendTerminateNodeMessage()
 	network3.SendTerminateNodeMessage()
 	network4.SendTerminateNodeMessage()
+	network5.SendTerminateNodeMessage()
 	//t.Error()
 }

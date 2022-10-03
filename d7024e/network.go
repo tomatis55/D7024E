@@ -357,7 +357,7 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 	case "FIND_DATA":
 		id = network.Kademlia.GetHashID(msg.Hash)
 	case "FIND_CONTACT":
-		id = *msg.Sender.ID
+		id = *msg.QueryContact.ID
 	}
 
 	//	The search begins by selecting alpha contacts from the non-empty k-bucket closest to the bucket appropriate to the key being searched on.
