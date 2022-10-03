@@ -7,9 +7,7 @@ import (
 func TestKademlia(t *testing.T) {
 	id := NewKademliaID("0000000000000000000000000000000000000000")
 	me := NewContact(id, "00")
-	//fmt.Println("meContact: ", me.String())
 	table := NewRoutingTable(me)
-	//kademlia := lib.Kademlia{routingTable: table}
 	kademlia := Kademlia{RoutingTable: table, K: 3, Data: make(map[string][]byte)}
 
 	c1 := NewContact(NewKademliaID("0000000000000000000000000000000000000001"), "01")
@@ -29,10 +27,10 @@ func TestKademlia(t *testing.T) {
 	kademlia.RoutingTable.AddContact(c5)
 	kademlia.RoutingTable.AddContact(c6)
 
-	result := kademlia.LookupContact(&c6)
+	result := kademlia.LookupContact(&c3)
 
-	if result.contacts[0].String() != c6.String() {
-		t.Error("got ", result.contacts[0].String(), "want ", c1.String())
+	if !result.contacts[0].ID.Equals(c3.ID) {
+		t.Error("got ", result.contacts[0].ID, "want ", c3.ID)
 	}
 
 	data1 := []byte{123, 160, 161, 255, 79, 101}

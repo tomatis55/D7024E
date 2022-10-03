@@ -11,7 +11,8 @@ func InitalizeSuperNode(id string, ip string) {
 	k := 4
 	me := NewContact(NewKademliaID(id), ip)
 	me.CalcDistance(me.ID)
-	NodeNetwork = Network{Kademlia{NewRoutingTable(me), k, make(map[string][]byte)}, alpha, make(chan Message, alpha)}
+	fmt.Println("Node ID: ", me.ID)
+	NodeNetwork = Network{Kademlia{NewRoutingTable(me), k, make(map[string][]byte)}, alpha, make(chan Message, alpha), make(chan []byte)}
 
 	go NodeNetwork.Listen(ip, 80)
 }
@@ -21,9 +22,8 @@ func InitalizeNode(ip string, idSuperNode string, ipSuperNode string, port strin
 	k := 4
 	me := NewContact(NewRandomKademliaID(), ip)
 	me.CalcDistance(me.ID)
-	fmt.Println("Node IP: ", me.Address)
 	fmt.Println("Node ID: ", me.ID)
-	NodeNetwork = Network{Kademlia{NewRoutingTable(me), k, make(map[string][]byte)}, alpha, make(chan Message, alpha)}
+	NodeNetwork = Network{Kademlia{NewRoutingTable(me), k, make(map[string][]byte)}, alpha, make(chan Message, alpha), make(chan []byte)}
 
 	go NodeNetwork.Listen(ip, 80)
 	superNode := NewContact(NewKademliaID(idSuperNode), ipSuperNode+port)
@@ -31,7 +31,6 @@ func InitalizeNode(ip string, idSuperNode string, ipSuperNode string, port strin
 	NodeNetwork.Kademlia.RoutingTable.AddContact(superNode)
 
 	shortList := NodeNetwork.SendFindContactMessage(&me)
-
 	if shortList.Len() == 0 {
 		NodeNetwork.SendFindContactMessage(&me)
 	}
