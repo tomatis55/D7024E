@@ -73,11 +73,6 @@ func (candidates *ContactCandidates) Append(contacts []Contact) {
 	candidates.contacts = append(candidates.contacts, contacts...)
 }
 
-// Returns a contact on a specific index in the contact list
-func (candidates *ContactCandidates) Index(index int) Contact {
-	return candidates.contacts[index]
-}
-
 // GetContacts returns the first count number of Contacts
 func (candidates *ContactCandidates) GetContacts(count int) []Contact {
 	if count > candidates.Len() {

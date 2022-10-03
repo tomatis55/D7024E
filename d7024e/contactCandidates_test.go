@@ -33,8 +33,4 @@ func TestContactCandidates(t *testing.T) {
 		t.Error("got ", contactTestList.Contains(c1), "want ", !contactTestList.Contains(c1))
 	}
 
-	if contactTestList.Index(0).ID.Equals(c1.ID) {
-		t.Error("got ", c1.String(), "want ", c2.String())
-	}
-
 }
