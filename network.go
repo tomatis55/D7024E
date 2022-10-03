@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -9,10 +10,11 @@ import (
 )
 
 type Network struct {
-	Kademlia         Kademlia
-	Alpha            int
-	Channel          chan Message
-	ForgetChannelMap map[string]chan bool
+	Kademlia          Kademlia
+	Alpha             int
+	MsgChannel        chan Message
+	DataExistsChannel chan []byte
+	ForgetChannelMap  map[string]chan bool
 }
 
 type Message struct {
@@ -93,7 +95,7 @@ func (network *Network) updateBucket(sender Contact) {
 			}()
 
 			select {
-			case _ = <-network.Channel:
+			case _ = <-network.MsgChannel:
 				// if alive we drop the new contact
 				return
 
@@ -146,7 +148,7 @@ func (network *Network) handlePacket(msg Message) {
 			network.updateBucket(contact)
 		}
 
-		network.Channel <- msg
+		network.MsgChannel <- msg
 
 	case "FIND_DATA":
 		/*
@@ -170,7 +172,7 @@ func (network *Network) handlePacket(msg Message) {
 			contact.CalcDistance(NewKademliaID(msg.Hash))
 			msg.Contacts[i] = contact
 		}
-		network.Channel <- msg
+		network.MsgChannel <- msg
 
 	case "RECOVER_DATA":
 
@@ -188,10 +190,9 @@ func (network *Network) handlePacket(msg Message) {
 
 		network.Kademlia.RefreshData(msg.Hash)
 		if msg.Data != nil {
-			fmt.Println("I found the data you were looking for:", string(msg.Data))
-			fmt.Println("in the node:", msg.Sender.ID)
+			network.DataExistsChannel <- msg.Data
 		} else {
-			fmt.Println("no data exist at provided hash :(")
+			network.DataExistsChannel <- nil
 		}
 
 	case "STORE":
@@ -208,7 +209,7 @@ func (network *Network) handlePacket(msg Message) {
 
 	case "STORE_ACK":
 
-		network.Channel <- msg
+		network.MsgChannel <- msg
 		network.ForgetChannelMap[msg.Hash] = make(chan bool, network.Kademlia.K)
 		fmt.Println("the data has been stored with the hash: ", msg.Hash)
 
@@ -223,30 +224,34 @@ func (network *Network) handlePacket(msg Message) {
 
 }
 
-func (network *Network) sendMessage(addr string, msg Message) {
+func (network *Network) sendMessage(addr string, msg Message) error {
 	conn, err := net.Dial("udp", addr)
 	if err != nil {
 		fmt.Println("DIAL error:", err)
+		return errors.New("DIAL error")
 	}
 	defer conn.Close()
 
 	marshalled_msg, err := json.Marshal(msg)
 	if err != nil {
 		fmt.Println("Marshal error:", err)
+		return errors.New("Marshal error")
 	}
 	_, err = conn.Write(marshalled_msg)
 	if err != nil {
 		fmt.Println("Write error:", err)
+		return errors.New("Write error")
 	}
+	return nil
 }
 
 // this function will send a ping message to a contact!
-func (network *Network) SendPingMessage(contact *Contact) {
+func (network *Network) SendPingMessage(contact *Contact) error {
 	msg := Message{
 		RPCtype: "PING",
 		Sender:  network.Kademlia.RoutingTable.me,
 	}
-	network.sendMessage(contact.Address, msg)
+	return network.sendMessage(contact.Address, msg)
 }
 
 /*
@@ -277,7 +282,7 @@ A FIND_VALUE RPC includes a B=160-bit key. If a corresponding value is present o
 Otherwise the RPC is equivalent to a FIND_NODE and a set of k triples is returned.
 This is a primitive operation, not an iterative one.
 */
-func (network *Network) SendFindDataMessage(hash string) {
+func (network *Network) SendFindDataMessage(hash string) ContactCandidates {
 	data, _, ok := network.Kademlia.LookupData(hash)
 	if ok {
 		// if data is in local node, print it
@@ -291,13 +296,35 @@ func (network *Network) SendFindDataMessage(hash string) {
 		}
 		contacts := network.FindClosestNodes(findDataMessage) // list
 
-		recoverDataMessage := Message{
-			RPCtype: "RECOVER_DATA",
-			Sender:  network.Kademlia.RoutingTable.me,
-			Hash:    hash,
+		if contacts.Len() != 0 {
+			recoverDataMessage := Message{
+				RPCtype: "RECOVER_DATA",
+				Sender:  network.Kademlia.RoutingTable.me,
+				Hash:    hash,
+			}
+			network.sendMessage(contacts.contacts[0].Address, recoverDataMessage)
+			for i := 1; i < contacts.Len(); i++ {
+				select {
+				case data := <-network.DataExistsChannel:
+					if data != nil {
+						// break
+						fmt.Println("I found the data you were looking for:", string(data))
+						fmt.Println("in the node:                          ", contacts.contacts[i-1].ID)
+						return contacts
+					} else {
+						// send msg to next index in contacts.contacts
+						network.sendMessage(contacts.contacts[i].Address, recoverDataMessage)
+					}
+				case <-time.After(1 * time.Second):
+					// send msg to next index in contacts.contacts
+					network.sendMessage(contacts.contacts[i].Address, recoverDataMessage)
+				}
+			}
+			fmt.Println("no data exist at provided hash :(")
 		}
-		network.sendMessage(contacts.contacts[0].Address, recoverDataMessage)
+		return contacts
 	}
+	return ContactCandidates{}
 }
 
 /*
@@ -381,8 +408,8 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 	//	Each contact, if it is live, should normally return k triples.
 	//	If any of the alpha contacts fails to reply, it is removed from the shortlist, at least temporarily.
 
-	for len(network.Channel) > 0 {
-		<-network.Channel
+	for len(network.MsgChannel) > 0 {
+		<-network.MsgChannel
 	}
 
 	nodesContactedThisIteration := ContactCandidates{make([]Contact, 0)}
@@ -400,7 +427,7 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 		go func(x Contact) {
 			defer wg.Done()
 			select {
-			case res := <-network.Channel:
+			case res := <-network.MsgChannel:
 				messageList = append(messageList, res)
 
 			case <-time.After(1 * time.Second):
@@ -465,8 +492,8 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 
 				if !nodesContacted.Contains(x) {
 					wg.Add(1)
-					for len(network.Channel) > 0 {
-						<-network.Channel
+					for len(network.MsgChannel) > 0 {
+						<-network.MsgChannel
 					}
 
 					// fmt.Println("2Sending message to: ", x.Address)
@@ -477,7 +504,7 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 					go func(x Contact) {
 						defer wg.Done()
 						select {
-						case res := <-network.Channel:
+						case res := <-network.MsgChannel:
 							messageList = append(messageList, res)
 
 						case <-time.After(1 * time.Second):
