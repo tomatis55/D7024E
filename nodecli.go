@@ -20,8 +20,9 @@ func Get(hash string) {
 func Forget(hash string) {
 
 	if len(hash) == 40 && isHexString(hash) {
-
-		NodeNetwork.SendForgetMessage(hash)
+		for i := 0; i < NodeNetwork.Kademlia.K; i++ {
+			NodeNetwork.ForgetChannelMap[hash] <- true
+		}
 
 	} else {
 		fmt.Println("Wrong hash format, please enter a valid hash ")

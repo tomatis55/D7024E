@@ -209,29 +209,13 @@ func (network *Network) handlePacket(msg Message) {
 	case "STORE_ACK":
 
 		network.Channel <- msg
-		network.ForgetChannelMap[msg.Hash] = make(chan bool, 1)
+		network.ForgetChannelMap[msg.Hash] = make(chan bool, network.Kademlia.K)
 		fmt.Println("the data has been stored with the hash: ", msg.Hash)
 
 	case "REFRESH":
 
 		network.Kademlia.RefreshData(msg.Hash)
-		fmt.Println("some data has been refreshed at hash: ", msg.Hash)
-
-	case "FORGET":
-
-		// fmt.Println("the data at this hash is set to be forgotten: ", msg.Hash)
-		// fmt.Println("bigstuff", network.ForgetChannelMap[msg.Hash])
-		// fmt.Println("HELLO")
-		ack := Message{
-			RPCtype: "FORGET_ACK",
-			Sender:  network.Kademlia.RoutingTable.me,
-			Hash:    msg.Hash,
-		}
-		network.sendMessage(msg.Sender.Address, ack)
-
-	case "FORGET_ACK":
-		fmt.Println("i wanna die")
-		network.ForgetChannelMap[msg.Hash] <- true // forget = true
+		// fmt.Println("some data has been refreshed at hash: ", msg.Hash)
 
 	default:
 		fmt.Println("oh no unknown message type recieved")
@@ -276,31 +260,6 @@ func (network *Network) SendTerminateNodeMessage() {
 	network.sendMessage(network.Kademlia.RoutingTable.me.Address, msg)
 }
 
-func (network *Network) SendForgetMessage(hash string) {
-
-	findDataMessage := Message{
-		RPCtype: "FIND_DATA",
-		Sender:  network.Kademlia.RoutingTable.me,
-		Hash:    hash,
-	}
-	contacts := network.FindClosestNodes(findDataMessage) // list
-
-	forgetMessage := Message{
-		RPCtype: "FORGET",
-		Hash:    hash,
-		Sender:  network.Kademlia.RoutingTable.me,
-	}
-
-	// send forgetMessage to k closest nodes
-	for i, contact := range contacts.contacts {
-		if i > network.Kademlia.K {
-			break
-		}
-		fmt.Println("sending forgetMessage to", contact.Address)
-		network.sendMessage(contact.Address, forgetMessage)
-	}
-}
-
 func (network *Network) SendFindContactMessage(contact *Contact) ContactCandidates {
 
 	msg := Message{
@@ -337,7 +296,6 @@ func (network *Network) SendFindDataMessage(hash string) {
 			Sender:  network.Kademlia.RoutingTable.me,
 			Hash:    hash,
 		}
-		fmt.Println("Sending recover data msg to: ", contacts.contacts[0].Address)
 		network.sendMessage(contacts.contacts[0].Address, recoverDataMessage)
 	}
 }
@@ -386,16 +344,15 @@ func (network *Network) SendRefreshMessage(refHash string, target Contact, me Co
 	// and to perpetually refresh the ttl-timer
 	// or untill we get a true from forgetChannel
 	for { // while (not forget) {...}
-		fmt.Println("forget: loop")
 		select {
 		case forget := <-network.ForgetChannelMap[refHash]:
-			fmt.Println("I AM INSIDE THE CASE NOW!!!")
+			// fmt.Println("I AM INSIDE THE CASE NOW!!!")
 			if forget {
-				fmt.Printf("forgetting %v now!\n", refHash)
+				// fmt.Printf("forgetting %v now!\n", refHash)
 				return
 			}
 		case <-time.After(TimeToLive - time.Second*3):
-			fmt.Println("sendin a REFRESHIN message")
+			// fmt.Println("sendin a REFRESHIN message")
 			network.sendMessage(target.Address, refreshMessage)
 		}
 	}
@@ -435,7 +392,7 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 		wg.Add(1)
 		x := alphaClosest.contacts[i]
 
-		fmt.Println("1Sending message to: ", x.Address)
+		// fmt.Println("1Sending message to: ", x.Address)
 		network.sendMessage(x.Address, msg)
 		nodesContacted.AddOne(x)
 		nodesContactedThisIteration.AddOne(x)
@@ -449,7 +406,7 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 			case <-time.After(1 * time.Second):
 				// fmt.Println("1Removing node: ", x.Address)
 				// shortList.Remove(x)
-				fmt.Println("1Waited more than 1 sec")
+				// fmt.Println("1Waited more than 1 sec")
 			}
 		}(x)
 	}
@@ -467,7 +424,7 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 				}
 			}
 			if !responded {
-				fmt.Println("1Removing node: ", x.Address)
+				// fmt.Println("1Removing node: ", x.Address)
 				shortList.Remove(x)
 			}
 		}
@@ -512,7 +469,7 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 						<-network.Channel
 					}
 
-					fmt.Println("2Sending message to: ", x.Address)
+					// fmt.Println("2Sending message to: ", x.Address)
 					network.sendMessage(x.Address, msg)
 					nodesContacted.AddOne(x)
 					nodesContactedThisIteration.AddOne(x)
@@ -526,7 +483,7 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 						case <-time.After(1 * time.Second):
 							// fmt.Println("2Removing node: ", x.Address)
 							// shortList.Remove(x)
-							fmt.Println("2Waited more than 1 sec")
+							// fmt.Println("2Waited more than 1 sec")
 						}
 					}(x)
 
@@ -545,7 +502,7 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 					}
 				}
 				if !responded {
-					fmt.Println("2Removing node: ", x.Address)
+					// fmt.Println("2Removing node: ", x.Address)
 					shortList.Remove(x)
 				}
 			}
@@ -584,7 +541,7 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 			break
 		}
 	}
-	fmt.Println("Shortlist at the end: ", shortList)
+	// fmt.Println("Shortlist at the end: ", shortList)
 	shortList.Sort()
 	return shortList
 }
