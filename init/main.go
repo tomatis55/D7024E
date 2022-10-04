@@ -62,6 +62,9 @@ func main() {
 		case inputSlices[0] == "superinfo":
 			SuperInfo()
 
+		case inputSlices[0] == "find" && len(inputSlices) == 2:
+			FindNode(inputSlices[1])
+
 		default:
 			fmt.Println("Not a valid command")
 		}

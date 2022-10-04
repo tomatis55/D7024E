@@ -2,6 +2,7 @@ package d7024e
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 )
 
@@ -51,7 +52,8 @@ func TestNetwork(t *testing.T) {
 	c2 := NewContact(NewKademliaID("0000000000000000000000000000000000000009"), "localhost:8009")
 	c3 := NewContact(NewKademliaID("000000000000000000000000000000000000000a"), "localhost:8010")
 	contacts2 = append(contacts2, c1, c2, c3)
-	msg2 := Message{RPCtype: "FIND_CONTACT_ACK", Sender: network.Kademlia.RoutingTable.me, Contacts: contacts2, QueryContact: &c3}
+	s := NewContact(NewKademliaID("0000000000000000000000000000000000000000"), "127.0.0.1:8000")
+	msg2 := Message{RPCtype: "FIND_CONTACT_ACK", Sender: network.Kademlia.RoutingTable.me, Contacts: contacts2, QueryContact: &s}
 	err3 := network.sendMessage("127.0.0.1:8000", msg2)
 
 	if err3 != nil {
@@ -66,11 +68,11 @@ func TestNetwork(t *testing.T) {
 
 	// TODO: check if the contacts are updated correctly in the bucket
 
-	//msgReceived := <-network.MsgChannel
+	msgReceived := <-network.MsgChannel
 
-	//if !reflect.DeepEqual(msgReceived.Contacts, contacts2) {
-	//	t.Error("got ", msgReceived.Contacts, "want ", contacts2)
-	//}
+	if !reflect.DeepEqual(msgReceived.Contacts, contacts2) {
+		t.Error("got ", msgReceived.Contacts, "want ", contacts2)
+	}
 
 	network.SendTerminateNodeMessage()
 	c4 := NewContact(NewKademliaID("000000000000000000000000000000000000000b"), "localhost:8011")
@@ -86,19 +88,23 @@ func TestNetwork(t *testing.T) {
 		t.Error("got ", candidates2.contacts, "want {}")
 	}
 
-	rt2 := NewRoutingTable(NewContact(NewKademliaID("000000000000000000000000000000000000000c"), "127.0.0.1:8012"))
-	rt2.AddContact(NewContact(NewKademliaID("000000000000000000000000000000000000000d"), "127.0.0.1:8013"))
-	rt2.AddContact(NewContact(NewKademliaID("111111111111111111111111111111111111111e"), "127.0.0.1:8014"))
+	superContact := NewContact(NewKademliaID("000000000000000000000000000000000000000c"), "127.0.0.1:8012")
+	d3 := NewContact(NewKademliaID("000000000000000000000000000000000000000d"), "127.0.0.1:8013")
+	e4 := NewContact(NewKademliaID("111111111111111111111111111111111111111e"), "127.0.0.1:8014")
+
+	rt2 := NewRoutingTable(superContact)
+	rt2.AddContact(d3)
+	rt2.AddContact(e4)
 	kademlia2 := Kademlia{rt2, k, make(map[string][]byte)}
 	network2 := Network{kademlia2, alpha, make(chan Message, alpha), make(chan []byte)}
 
-	rt3 := NewRoutingTable(NewContact(NewKademliaID("000000000000000000000000000000000000000d"), "127.0.0.1:8013"))
-	rt3.AddContact(NewContact(NewKademliaID("000000000000000000000000000000000000000c"), "127.0.0.1:8012"))
+	rt3 := NewRoutingTable(d3)
+	rt3.AddContact(superContact)
 	kademlia3 := Kademlia{rt3, k, make(map[string][]byte)}
 	network3 := Network{kademlia3, alpha, make(chan Message, alpha), make(chan []byte)}
 
-	rt4 := NewRoutingTable(NewContact(NewKademliaID("111111111111111111111111111111111111111e"), "127.0.0.1:8014"))
-	rt4.AddContact(NewContact(NewKademliaID("000000000000000000000000000000000000000c"), "127.0.0.1:8012"))
+	rt4 := NewRoutingTable(e4)
+	rt4.AddContact(superContact)
 	kademlia4 := Kademlia{rt4, k, make(map[string][]byte)}
 	network4 := Network{kademlia4, alpha, make(chan Message, alpha), make(chan []byte)}
 
@@ -108,33 +114,34 @@ func TestNetwork(t *testing.T) {
 	go network3.Listen("127.0.0.1", 8013)
 	go network4.Listen("127.0.0.1", 8014)
 
-	c0 := NewContact(NewKademliaID("000000000000000000000000000000000000000c"), "127.0.0.1:8012")
-	candidates3 := network3.SendFindContactMessage(&c0)
+	candidates3 := network3.SendFindContactMessage(&superContact)
 	for _, x := range candidates3.contacts {
 		fmt.Println(x.String())
 	}
 
-	if !candidates3.contacts[0].ID.Equals(NewKademliaID("000000000000000000000000000000000000000c")) {
+	if !candidates3.contacts[0].ID.Equals(superContact.ID) {
 		t.Error("got ", candidates3.contacts[0].Address, "want: ", "127.0.0.1:8012")
 	}
 
-	rt5 := NewRoutingTable(NewContact(NewKademliaID("111111111111111111111111111111111111111f"), "127.0.0.1:8015"))
-	rt5.AddContact(NewContact(NewKademliaID("000000000000000000000000000000000000000c"), "127.0.0.1:8012"))
-	rt2.AddContact(NewContact(NewKademliaID("111111111111111111111111111111111111111f"), "127.0.0.1:8015"))
+	f5 := NewContact(NewKademliaID("111111111111111111111111111111111111111f"), "127.0.0.1:8015")
+	rt5 := NewRoutingTable(f5)
+	rt5.AddContact(superContact)
+	rt2.AddContact(f5)
 	kademlia5 := Kademlia{rt5, k, make(map[string][]byte)}
 	network5 := Network{kademlia5, alpha, make(chan Message, alpha), make(chan []byte)}
 	go network5.Listen("127.0.0.1", 8015)
 
-	f := NewContact(NewKademliaID("111111111111111111111111111111111111111f"), "127.0.0.1:8015")
-	candidates4 := network3.SendFindContactMessage(&f)
+	network3.SendTerminateNodeMessage()
 
-	if !candidates4.contacts[0].ID.Equals(NewKademliaID("111111111111111111111111111111111111111f")) {
+	candidates4 := network3.SendFindContactMessage(&f5)
+
+	fmt.Println("candidates4.contacts: ", candidates4.contacts)
+	if !candidates4.contacts[0].ID.Equals(f5.ID) {
 		t.Error("got ", candidates4.contacts[0].Address, "want: ", "127.0.0.1:8015")
 	}
 
 	network2.SendTerminateNodeMessage()
-	network3.SendTerminateNodeMessage()
 	network4.SendTerminateNodeMessage()
 	network5.SendTerminateNodeMessage()
-	//t.Error()
+	t.Error()
 }
