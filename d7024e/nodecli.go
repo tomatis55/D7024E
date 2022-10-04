@@ -49,6 +49,7 @@ func Ping(ip string) {
 		NodeNetwork.SendPingMessage(&contact)
 		time.Sleep(3 * time.Second)
 	}
+
 }
 
 func Info() {
@@ -63,9 +64,10 @@ func SuperInfo() {
 	id := NodeNetwork.Kademlia.RoutingTable.me.ID
 	fmt.Println("Node IP: ", ip)
 	fmt.Println("Node ID: ", id)
-	fmt.Println("======== All known contacts ========")
-	fmt.Println(NodeNetwork.Kademlia.GetAllContacts().contacts)
-	// for _, x := range NodeNetwork.Kademlia.GetAllContacts().contacts {
-	// 	fmt.Println(x.String())
-	// }s
+	fmt.Println("All known contacts: ", NodeNetwork.Kademlia.GetAllContacts())
+}
+
+func FindNode(nodeID string) {
+	contact := NewContact(NewKademliaID(nodeID), "172.0.0.1")
+	NodeNetwork.SendFindContactMessage(&contact)
 }

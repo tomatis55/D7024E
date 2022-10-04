@@ -132,18 +132,18 @@ func (network *Network) handlePacket(msg Message) {
 
 		// send ack back
 		ack := Message{
-			RPCtype:  "FIND_CONTACT_ACK",
-			Sender:   network.Kademlia.RoutingTable.me,
-			Contacts: contacts.contacts,
+			RPCtype:      "FIND_CONTACT_ACK",
+			Sender:       network.Kademlia.RoutingTable.me,
+			Contacts:     contacts.contacts,
+			QueryContact: msg.QueryContact,
 		}
 		network.sendMessage(msg.Sender.Address, ack)
 
 	case "FIND_CONTACT_ACK":
 
 		for i, contact := range msg.Contacts {
-			contact.CalcDistance(network.Kademlia.RoutingTable.me.ID)
+			contact.CalcDistance(msg.QueryContact.ID)
 			msg.Contacts[i] = contact
-			network.updateBucket(contact)
 		}
 
 		network.MsgChannel <- msg
@@ -259,6 +259,12 @@ func (network *Network) SendFindContactMessage(contact *Contact) ContactCandidat
 	}
 
 	shortList := network.FindClosestNodes(msg)
+
+	for _, contact := range shortList.contacts {
+		contact.CalcDistance(network.Kademlia.RoutingTable.me.ID)
+		network.updateBucket(contact)
+	}
+
 	return shortList
 }
 
@@ -439,14 +445,13 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 	//  The only condition for this selection is that they have not already been contacted.
 	//  Once again a FIND_* RPC is sent to each in parallel.
 
-	if shortList.Len() == 0 {
-		return shortList
-	}
-
 	// Fresh and new WaitGroup
 	wg = sync.WaitGroup{}
 
 	for {
+		if shortList.Len() == 0 {
+			return shortList
+		}
 		shortList.Sort()
 		fmt.Println("\nshortList: ")
 		for _, x := range shortList.contacts {
