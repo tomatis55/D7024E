@@ -47,7 +47,6 @@ func (network *Network) Listen(ip string, port int) {
 		if err != nil {
 			fmt.Println("Read error:", err)
 		}
-
 		var msg Message
 		json.Unmarshal(buf[:rlen], &msg)
 
@@ -145,7 +144,6 @@ func (network *Network) handlePacket(msg Message) {
 			contact.CalcDistance(msg.QueryContact.ID)
 			msg.Contacts[i] = contact
 		}
-
 		network.MsgChannel <- msg
 
 	case "FIND_DATA":
