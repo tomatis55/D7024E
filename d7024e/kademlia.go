@@ -3,12 +3,21 @@ package d7024e
 import (
 	"crypto/sha1"
 	"encoding/hex"
+	"fmt"
+	"time"
 )
+
+var TimeToLive time.Duration = time.Second * 15 // deathTimer
 
 type Kademlia struct {
 	RoutingTable *RoutingTable
 	K            int
 	Data         map[string][]byte
+	ChannelMap   map[string]chan string
+}
+
+func NewKademlia(rt *RoutingTable, k int) Kademlia {
+	return Kademlia{rt, k, make(map[string][]byte), make(map[string]chan string)}
 }
 
 func (kademlia *Kademlia) LookupContact(target *Contact) ContactCandidates {
@@ -43,7 +52,30 @@ func (kademlia *Kademlia) GetHashID(encodedHash string) KademliaID {
 func (kademlia *Kademlia) Store(data []byte) string {
 	encodedHash := kademlia.GetHash(data)
 	kademlia.Data[encodedHash] = data
+	kademlia.ChannelMap[encodedHash] = make(chan string)
+
+	go func(ttl time.Duration, hash string) {
+		for {
+			select {
+			//	but what if multiple data stored in same node? :HMMM
+			case _ = <-kademlia.ChannelMap[hash]:
+				// if we recieve a refresh we reset ttl-timer
+				continue
+			case <-time.After(ttl):
+				// if no refreshes we kill the data
+				fmt.Println("hello! data at hash", hash, "is expiring now")
+				delete(kademlia.Data, hash)
+				delete(kademlia.ChannelMap, hash)
+				return
+			}
+		}
+	}(TimeToLive, encodedHash)
+
 	return encodedHash
+}
+
+func (kademlia *Kademlia) RefreshData(hash string) {
+	kademlia.ChannelMap[hash] <- "hi"
 }
 
 func (kademlia *Kademlia) RemoveContact(contact *Contact) {

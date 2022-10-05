@@ -69,5 +69,6 @@ func SuperInfo() {
 
 func FindNode(nodeID string) {
 	contact := NewContact(NewKademliaID(nodeID), "172.0.0.1")
-	NodeNetwork.SendFindContactMessage(&contact)
+	contacts := NodeNetwork.SendFindContactMessage(&contact)
+	fmt.Println("Contacts from FindContactMsg: ", contacts.contacts)
 }
