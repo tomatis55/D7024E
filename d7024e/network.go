@@ -271,12 +271,13 @@ A FIND_VALUE RPC includes a B=160-bit key. If a corresponding value is present o
 Otherwise the RPC is equivalent to a FIND_NODE and a set of k triples is returned.
 This is a primitive operation, not an iterative one.
 */
-func (network *Network) SendFindDataMessage(hash string) ContactCandidates {
+func (network *Network) SendFindDataMessage(hash string) (*KademliaID, string, bool) {
 	data, _, ok := network.Kademlia.LookupData(hash)
 	if ok {
 		// if data is in local node, print it
 		fmt.Println("I found the data: ", string(data))
 		fmt.Println("in the node:                          ", network.Kademlia.RoutingTable.me.ID)
+		return network.Kademlia.RoutingTable.me.ID, string(data), true
 	} else {
 		findDataMessage := Message{
 			RPCtype: "FIND_DATA",
@@ -301,7 +302,7 @@ func (network *Network) SendFindDataMessage(hash string) ContactCandidates {
 						// break
 						fmt.Println("I found the data: ", string(data))
 						fmt.Println("in the node:                          ", contacts.contacts[i-1].ID)
-						return contacts
+						return contacts.contacts[i-1].ID, string(data), true
 					} else {
 						// send msg to next index in contacts.contacts
 						network.sendMessage(contacts.contacts[i].Address, recoverDataMessage)
@@ -313,12 +314,13 @@ func (network *Network) SendFindDataMessage(hash string) ContactCandidates {
 				}
 			}
 
-			fmt.Println("no data exist at provided hash :(")
-
 		}
-		return contacts
+
+		fmt.Println("no data exist at provided hash :(")
+		return nil, "", false
+
 	}
-	return ContactCandidates{}
+
 }
 
 /*
@@ -326,7 +328,7 @@ The sender of the STORE RPC provides a key and a block of data and requires that
 and make it available for later retrieval by that key.
 This is a primitive operation, not an iterative one.
 */
-func (network *Network) SendStoreMessage(data []byte) { // prints hash when handling response
+func (network *Network) SendStoreMessage(data []byte) (ContactCandidates, string) { // prints hash when handling response
 	// find which node we want to store the data in
 	// we do this by hashing the data and finding the node closest to the value of the hash?
 	hash := network.Kademlia.GetHash(data)
@@ -346,13 +348,19 @@ func (network *Network) SendStoreMessage(data []byte) { // prints hash when hand
 		Hash:    hash,
 	}
 
+	kContacts := ContactCandidates{}
 	for i, contact := range contacts.contacts {
 		if i == network.Kademlia.K {
 			break
 		}
+		kContacts.AddOne(contact)
 		network.sendMessage(contact.Address, storeMessage)
 	}
+
 	fmt.Println("Stored with hash: ", hash)
+	kContacts.Sort()
+	return kContacts, hash
+
 }
 
 func (network *Network) FindClosestNodes(msg Message) ContactCandidates {

@@ -80,9 +80,9 @@ func TestNetwork(t *testing.T) {
 		t.Error("got ", candidates.contacts, "want {}")
 	}
 
-	candidates2 := network.SendFindDataMessage("0000000000000000000400000000000000000000")
-	if candidates2.Len() != 0 {
-		t.Error("got ", candidates2.contacts, "want {}")
+	_, _, ok := network.SendFindDataMessage("0000000000000000000400000000000000000000")
+	if ok {
+		t.Error("got ", ok, "want ", !ok)
 	}
 
 	superContact := NewContact(NewKademliaID("000000000000000000000000000000000000000c"), "127.0.0.1:8012")
@@ -136,9 +136,31 @@ func TestNetwork(t *testing.T) {
 	if !candidates4.contacts[0].ID.Equals(f5.ID) {
 		t.Error("got ", candidates4.contacts[0].Address, "want: ", "127.0.0.1:8015")
 	}
+	data := []byte("Test data")
+	dataContacts, hash := network2.SendStoreMessage(data)
+	if !dataContacts.contacts[0].ID.Equals(superContact.ID) {
+		t.Error("got ", dataContacts.contacts[0].Address, "want: ", superContact.Address)
+	}
+
+	a6 := NewContact(NewKademliaID("111111111111111111111111111111111111111a"), "127.0.0.1:8016")
+	rt6 := NewRoutingTable(a6)
+	rt6.AddContact(superContact)
+	rt2.AddContact(a6)
+	kademlia6 := Kademlia{rt6, 1, make(map[string][]byte)}
+	network6 := Network{kademlia6, 2, make(chan Message, alpha), make(chan []byte)}
+	go network6.Listen("127.0.0.1", 8016)
+
+	dataContactID, dataRecieved, ok := network6.SendFindDataMessage(hash)
+	fmt.Println(dataContactID)
+	if !ok {
+		t.Error("want ", !ok, "got ", ok)
+	} else if dataRecieved != string(data) {
+		t.Error("want ", data, "got ", dataRecieved)
+	}
 
 	network2.SendTerminateNodeMessage()
 	network4.SendTerminateNodeMessage()
 	network5.SendTerminateNodeMessage()
+	network6.SendTerminateNodeMessage()
 	//t.Error()
 }
