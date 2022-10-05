@@ -276,9 +276,8 @@ func (network *Network) SendFindContactMessage(contact *Contact) ContactCandidat
 
 	shortList := network.FindClosestNodes(msg)
 
-	for i, contact := range shortList.contacts {
+	for _, contact := range shortList.contacts {
 		contact.CalcDistance(network.Kademlia.RoutingTable.me.ID)
-		msg.Contacts[i] = contact
 		network.updateBucket(contact)
 	}
 
