@@ -27,6 +27,10 @@ type Message struct {
 	// more?
 }
 
+func NewNetwork(kademlia Kademlia, alpha int) Network {
+	return Network{kademlia, alpha, make(chan Message, alpha), make(chan []byte), make(map[string]chan bool)}
+}
+
 // will listen for udp-packets on the provided ip and port
 // when a packet is detected start a goRoutine to handle it
 func (network *Network) Listen(ip string, port int) {

@@ -17,6 +17,10 @@ type Kademlia struct {
 	ChannelMap   map[string]chan string
 }
 
+func NewKademlia(rt *RoutingTable, k int) Kademlia {
+	return Kademlia{rt, k, make(map[string][]byte), make(map[string]chan string)}
+}
+
 func (kademlia *Kademlia) LookupContact(target *Contact) ContactCandidates {
 	contacts := ContactCandidates{kademlia.RoutingTable.FindClosestContacts(target.ID, kademlia.K)}
 	return contacts
