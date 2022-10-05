@@ -10,7 +10,7 @@ func TestKademlia(t *testing.T) {
 	//fmt.Println("meContact: ", me.String())
 	table := NewRoutingTable(me)
 	//kademlia := lib.Kademlia{routingTable: table}
-	kademlia := Kademlia{RoutingTable: table, K: 3, Data: make(map[string][]byte), ChannelMap: make(map[string]chan string)}
+	kademlia := NewKademlia(table, 3)
 
 	c1 := NewContact(NewKademliaID("0000000000000000000000000000000000000001"), "01")
 	c2 := NewContact(NewKademliaID("0000000000000000000000000000000000000002"), "02")

@@ -59,14 +59,17 @@ func (kademlia *Kademlia) Store(data []byte) string {
 		for {
 			select {
 			//	but what if multiple data stored in same node? :HMMM
+			// i solved this with the channelMap, each hash now has their own refreshChannel
 			case _ = <-kademlia.ChannelMap[hash]:
 				// if we recieve a refresh we reset ttl-timer
 				continue
 			case <-time.After(ttl):
 				// if no refreshes we kill the data
 				fmt.Println("hello! data at hash", hash, "is expiring now")
-				kademlia.Data[hash] = nil
-				kademlia.ChannelMap[hash] = nil
+				// kademlia.Data[hash] = nil 		// this is dumb
+				// kademlia.ChannelMap[hash] = nil  // this is dumb
+				delete(kademlia.Data, hash)       // this is smart(er)
+				delete(kademlia.ChannelMap, hash) // this is smart(er)
 				return
 			}
 		}

@@ -26,13 +26,6 @@ func (contact *Contact) CalcDistance(target *KademliaID) {
 
 // Less returns true if contact.distance < otherContact.distance
 func (contact *Contact) Less(otherContact *Contact) bool {
-
-	// fmt.Println("in less")
-	// fmt.Println("in less: contact", contact)
-	// fmt.Println("in less: contact.distance", contact.distance)
-	// fmt.Println("in less: otherContact", otherContact)
-	// fmt.Println("in less: otherContact.distance", otherContact.distance)
-
 	return contact.distance.Less(otherContact.distance)
 }
 
