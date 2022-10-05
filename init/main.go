@@ -15,19 +15,19 @@ func init() {
 
 	idSuperNode := "0000000000000000000000000000000000000001"
 	ipSuperNode := "172.20.0.2"
-	port := ":80"
+	port := 80
+	portSuperNode := "80"
 	ip := arg[1]
-	ipAndPort := ip + port
 	fmt.Println(ip)
 
 	if ip == ipSuperNode {
-		InitalizeSuperNode(idSuperNode, ipAndPort)
+		InitalizeSuperNode(idSuperNode, ip, port)
 
 	} else {
 		if len(os.Args) > 2 { // if another super node was specified
-			InitalizeNode(ipAndPort, arg[2], arg[3], port) // arg[2] = id of node to connect to, arg[3] = ip of node to connect to
+			InitalizeNode(ip, port, arg[2], arg[3], portSuperNode) // arg[2] = id of node to connect to, arg[3] = ip of node to connect to
 		} else { // if no node was specified, use the standard super node
-			InitalizeNode(ipAndPort, idSuperNode, ipSuperNode, port)
+			InitalizeNode(ip, port, idSuperNode, ipSuperNode, portSuperNode)
 		}
 	}
 }

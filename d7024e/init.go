@@ -6,27 +6,28 @@ import (
 
 var NodeNetwork Network
 
-func InitalizeSuperNode(id string, ip string) {
+func InitalizeSuperNode(id string, ip string, port int) *Network {
 	alpha := 3
 	k := 4
-	me := NewContact(NewKademliaID(id), ip)
+	me := NewContact(NewKademliaID(id), ip+":"+fmt.Sprint(port))
 	me.CalcDistance(me.ID)
 	fmt.Println("Node ID: ", me.ID)
 	NodeNetwork = NewNetwork(NewKademlia(NewRoutingTable(me), k), alpha)
 
-	go NodeNetwork.Listen(ip, 80)
+	go NodeNetwork.Listen(ip, port)
+	return &NodeNetwork
 }
 
-func InitalizeNode(ip string, idSuperNode string, ipSuperNode string, port string) {
+func InitalizeNode(ip string, port int, idSuperNode string, ipSuperNode string, portSuperNode string) *Network {
 	alpha := 3
 	k := 4
-	me := NewContact(NewRandomKademliaID(), ip)
+	me := NewContact(NewRandomKademliaID(), ip+":"+fmt.Sprint(port))
 	me.CalcDistance(me.ID)
 	fmt.Println("Node ID: ", me.ID)
 	NodeNetwork = NewNetwork(NewKademlia(NewRoutingTable(me), k), alpha)
 
-	go NodeNetwork.Listen(ip, 80)
-	superNode := NewContact(NewKademliaID(idSuperNode), ipSuperNode+port)
+	go NodeNetwork.Listen(ip, port)
+	superNode := NewContact(NewKademliaID(idSuperNode), ipSuperNode+":"+portSuperNode)
 	superNode.CalcDistance(me.ID)
 	NodeNetwork.Kademlia.RoutingTable.AddContact(superNode)
 
@@ -35,4 +36,5 @@ func InitalizeNode(ip string, idSuperNode string, ipSuperNode string, port strin
 		NodeNetwork.SendFindContactMessage(&me)
 	}
 
+	return &NodeNetwork
 }

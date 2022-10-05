@@ -135,6 +135,7 @@ func (network *Network) handlePacket(msg Message) {
 	case "FIND_CONTACT":
 		fmt.Println("find me, find me, find me a contact after midnight")
 		contacts := network.Kademlia.LookupContact(msg.QueryContact)
+		fmt.Println("contacts found in supernode: ", contacts.contacts)
 
 		// send ack back
 		ack := Message{
@@ -146,13 +147,11 @@ func (network *Network) handlePacket(msg Message) {
 		network.sendMessage(msg.Sender.Address, ack)
 
 	case "FIND_CONTACT_ACK":
-		fmt.Println("msg in FIND_CONTACT_ACK", msg.QueryContact)
 		for i, contact := range msg.Contacts {
 			contact.CalcDistance(msg.QueryContact.ID)
 			msg.Contacts[i] = contact
-			// network.updateBucket(contact)
 		}
-
+		fmt.Println("msg in FIND_CONTACT_ACK", msg.Contacts)
 		network.MsgChannel <- msg
 
 	case "FIND_DATA":
@@ -189,11 +188,11 @@ func (network *Network) handlePacket(msg Message) {
 			Hash:    msg.Hash,
 			Data:    data,
 		}
+		fmt.Println("Data before sending ack message: ", data)
 		network.sendMessage(msg.Sender.Address, ack)
 
 	case "RECOVER_DATA_ACK":
-
-		network.Kademlia.RefreshData(msg.Hash)
+		go network.Kademlia.RefreshData(msg.Hash)
 		network.DataExistsChannel <- msg.Data
 
 	case "STORE":
@@ -316,7 +315,6 @@ func (network *Network) SendFindDataMessage(hash string) (*KademliaID, string, b
 				select {
 				case data := <-network.DataExistsChannel:
 					if data != nil {
-						// break
 						fmt.Println("I found the data you were looking for:", string(data))
 						fmt.Println("in the node:                          ", contacts.contacts[i].ID)
 						return contacts.contacts[i].ID, string(data), true
@@ -382,13 +380,10 @@ func (network *Network) SendRefreshMessage(refHash string, target Contact, me Co
 	for { // while (not forget) {...}
 		select {
 		case forget := <-network.ForgetChannelMap[refHash]:
-			// fmt.Println("I AM INSIDE THE CASE NOW!!!")
 			if forget {
-				// fmt.Printf("forgetting %v now!\n", refHash)
 				return
 			}
 		case <-time.After(TimeToLive - time.Second*3):
-			// fmt.Println("sendin a REFRESHIN message")
 			network.sendMessage(target.Address, refreshMessage)
 		}
 	}
@@ -428,7 +423,6 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 		wg.Add(1)
 		x := alphaClosest.contacts[i]
 
-		// fmt.Println("1Sending message to: ", x.Address)
 		network.sendMessage(x.Address, msg)
 		nodesContacted.AddOne(x)
 		nodesContactedThisIteration.AddOne(x)
@@ -440,9 +434,7 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 				messageList = append(messageList, res)
 
 			case <-time.After(1 * time.Second):
-				// fmt.Println("1Removing node: ", x.Address)
-				// shortList.Remove(x)
-				// fmt.Println("1Waited more than 1 sec")
+
 			}
 		}(x)
 	}
@@ -460,7 +452,6 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 				}
 			}
 			if !responded {
-				// fmt.Println("1Removing node: ", x.Address)
 				shortList.Remove(x)
 			}
 		}
@@ -504,7 +495,6 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 						<-network.MsgChannel
 					}
 
-					// fmt.Println("2Sending message to: ", x.Address)
 					network.sendMessage(x.Address, msg)
 					nodesContacted.AddOne(x)
 					nodesContactedThisIteration.AddOne(x)
@@ -516,9 +506,7 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 							messageList = append(messageList, res)
 
 						case <-time.After(1 * time.Second):
-							// fmt.Println("2Removing node: ", x.Address)
-							// shortList.Remove(x)
-							// fmt.Println("2Waited more than 1 sec")
+
 						}
 					}(x)
 
@@ -537,7 +525,6 @@ func (network *Network) FindClosestNodes(msg Message) ContactCandidates {
 					}
 				}
 				if !responded {
-					// fmt.Println("2Removing node: ", x.Address)
 					shortList.Remove(x)
 				}
 			}
