@@ -40,6 +40,31 @@ type ContactCandidates struct {
 	contacts []Contact
 }
 
+func (candidates *ContactCandidates) AddOne(contact Contact) {
+	candidates.contacts = append(candidates.contacts, contact)
+}
+
+func (candidates *ContactCandidates) Contains(contact Contact) bool {
+	contains := false
+	for _, x := range candidates.contacts {
+		if x.ID.Equals(contact.ID) {
+			contains = true
+		}
+	}
+	return contains
+}
+
+func (candidates *ContactCandidates) Remove(contact Contact) {
+	for i, x := range candidates.contacts {
+		if x.ID.Equals(contact.ID) {
+			copy(candidates.contacts[i:], candidates.contacts[i+1:]) // Shift a[i+1:] left one index.
+			candidates.contacts[len(candidates.contacts)-1] = Contact{}     // Erase last element (write zero value).
+			candidates.contacts = candidates.contacts[:len(candidates.contacts)-1]     // Truncate slice.
+			return
+		}
+	}
+}
+
 // Append an array of Contacts to the ContactCandidates
 func (candidates *ContactCandidates) Append(contacts []Contact) {
 	candidates.contacts = append(candidates.contacts, contacts...)
@@ -47,7 +72,12 @@ func (candidates *ContactCandidates) Append(contacts []Contact) {
 
 // GetContacts returns the first count number of Contacts
 func (candidates *ContactCandidates) GetContacts(count int) []Contact {
-	return candidates.contacts[:count]
+	if count > candidates.Len() {
+		return candidates.contacts
+	} else {
+		return candidates.contacts[:count]
+	}
+
 }
 
 // Sort the Contacts in ContactCandidates
