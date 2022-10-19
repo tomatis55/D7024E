@@ -135,8 +135,6 @@ func (network *Network) handlePacket(msg Message) {
 	case "FIND_CONTACT":
 		fmt.Println("find me, find me, find me a contact after midnight")
 		contacts := network.Kademlia.LookupContact(msg.QueryContact)
-		fmt.Println("contacts found in supernode: ", contacts.contacts)
-
 		// send ack back
 		ack := Message{
 			RPCtype:      "FIND_CONTACT_ACK",
@@ -188,7 +186,6 @@ func (network *Network) handlePacket(msg Message) {
 			Hash:    msg.Hash,
 			Data:    data,
 		}
-		fmt.Println("Data before sending ack message: ", data)
 		network.sendMessage(msg.Sender.Address, ack)
 
 	case "RECOVER_DATA_ACK":
@@ -211,7 +208,6 @@ func (network *Network) handlePacket(msg Message) {
 
 		network.MsgChannel <- msg
 		network.ForgetChannelMap[msg.Hash] = make(chan bool, network.Kademlia.K)
-		fmt.Println("the data has been stored with the hash: ", msg.Hash)
 
 	case "REFRESH":
 

@@ -53,6 +53,9 @@ func main() {
 			Exit()
 			loop = false
 
+		case inputSlices[0] == "forget" && len(inputSlices) == 2:
+			Forget(inputSlices[1])
+
 		case inputSlices[0] == "ping" && len(inputSlices) == 2:
 			Ping(inputSlices[1])
 

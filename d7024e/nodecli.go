@@ -38,6 +38,18 @@ func Exit() {
 	NodeNetwork.SendTerminateNodeMessage()
 }
 
+func Forget(hash string) {
+
+	if len(hash) == 40 && isHexString(hash) {
+		for i := 0; i < NodeNetwork.Kademlia.K; i++ {
+			NodeNetwork.ForgetChannelMap[hash] <- true
+		}
+
+	} else {
+		fmt.Println("Wrong hash format, please enter a valid hash ")
+	}
+}
+
 func Ping(ip string) {
 	ip = ip + ":80"
 	fmt.Println(ip)
